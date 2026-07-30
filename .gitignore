@@ -1,7 +1,8 @@
 node_modules/
-.next/
+dist/
 out/
-*.log
 .DS_Store
-.env*
-!.env.example
+*.log
+# Local secrets — your API keys live here, never commit them
+.env
+config/settings.local.json

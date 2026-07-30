@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' https://esm.sh 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://esm.sh; media-src 'self' file: blob: data:;" />
+  <title>Jarvis</title>
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Import map lets us `import * as THREE from 'three'` with no build step. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.160.0"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- ── Custom title bar ─────────────────────────────────────────────── -->
+  <header class="titlebar">
+    <div class="titlebar__brand">
+      <span class="dot"></span> JARVIS
+    </div>
+    <div class="titlebar__drag"></div>
+    <div class="titlebar__actions">
+      <button id="btn-settings" title="Settings" class="icon-btn">⚙</button>
+      <button id="btn-min" class="icon-btn">—</button>
+      <button id="btn-max" class="icon-btn">▢</button>
+      <button id="btn-close" class="icon-btn icon-btn--danger">✕</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <!-- ── Left column ─────────────────────────────────────────────── -->
+    <section class="col col--left">
+      <!-- Weather -->
+      <div class="glass panel weather">
+        <div class="panel__head">
+          <span>Weather</span>
+          <span id="weather-city" class="muted">—</span>
+        </div>
+        <div class="weather__now">
+          <div id="weather-temp" class="weather__temp">--°</div>
+          <div class="weather__meta">
+            <div id="weather-desc" class="weather__desc">Loading…</div>
+            <div id="weather-sub" class="muted small">H --° · L --°</div>
+          </div>
+        </div>
+        <div id="weather-forecast" class="weather__forecast"></div>
+      </div>
+
+      <!-- Tasks / reminders -->
+      <div class="glass panel tasks">
+        <div class="panel__head">
+          <span>Tasks &amp; Reminders</span>
+          <span id="task-count" class="muted small">0</span>
+        </div>
+        <form id="task-form" class="task__form">
+          <input id="task-input" placeholder="Add a task… (e.g. Call mom tomorrow)" autocomplete="off" />
+          <button type="submit" class="mini-btn">＋</button>
+        </form>
+        <ul id="task-list" class="task__list"></ul>
+      </div>
+    </section>
+
+    <!-- ── Center: the Orb + conversation ──────────────────────────── -->
+    <section class="col col--center">
+      <div class="orb-wrap">
+        <canvas id="orb-canvas"></canvas>
+        <div class="orb-status">
+          <div id="status-line" class="status-line">Say “Jarvis” to wake me</div>
+        </div>
+      </div>
+
+      <div id="transcript" class="transcript"></div>
+
+      <form id="chat-form" class="chat-bar glass">
+        <button type="button" id="btn-mic" class="mic-btn" title="Push to talk">🎙</button>
+        <input id="chat-input" placeholder="Ask Jarvis anything…" autocomplete="off" />
+        <button type="submit" class="send-btn">➤</button>
+      </form>
+    </section>
+
+    <!-- ── Right column ────────────────────────────────────────────── -->
+    <section class="col col--right">
+      <!-- Notifications / WhatsApp -->
+      <div class="glass panel notifs">
+        <div class="panel__head">
+          <span>Notifications</span>
+          <span id="notif-count" class="badge">0</span>
+        </div>
+        <ul id="notif-list" class="notif__list">
+          <li class="muted small">Connect WhatsApp in a later step to see messages here.</li>
+        </ul>
+      </div>
+
+      <!-- Music -->
+      <div class="glass panel music">
+        <div class="panel__head">
+          <span>Music</span>
+          <button id="btn-music-folder" class="mini-btn" title="Choose music folder">📁</button>
+        </div>
+        <div class="music__now">
+          <div id="music-title" class="music__title muted">No track loaded</div>
+          <div class="music__controls">
+            <button id="music-prev" class="icon-btn">⏮</button>
+            <button id="music-play" class="icon-btn">▶</button>
+            <button id="music-next" class="icon-btn">⏭</button>
+          </div>
+        </div>
+        <ul id="music-list" class="music__list"></ul>
+        <audio id="audio" preload="none"></audio>
+      </div>
+    </section>
+  </main>
+
+  <!-- ── Settings modal ──────────────────────────────────────────────── -->
+  <div id="settings-modal" class="modal hidden">
+    <div class="glass modal__card">
+      <div class="panel__head">
+        <span>Settings</span>
+        <button id="settings-close" class="icon-btn">✕</button>
+      </div>
+      <label>Claude API key <span class="muted small">(console.anthropic.com — powers Jarvis's brain)</span></label>
+      <input id="set-claude" type="password" placeholder="sk-ant-…" />
+
+      <label>ElevenLabs API key <span class="muted small">(optional — realistic voice)</span></label>
+      <input id="set-eleven" type="password" placeholder="optional" />
+
+      <label>City name</label>
+      <input id="set-city" placeholder="Brooklyn" />
+      <div class="row">
+        <div><label>Latitude</label><input id="set-lat" placeholder="40.65" /></div>
+        <div><label>Longitude</label><input id="set-lon" placeholder="-73.95" /></div>
+      </div>
+
+      <label>Wake word</label>
+      <input id="set-wake" placeholder="jarvis" />
+
+      <button id="settings-save" class="save-btn">Save</button>
+    </div>
+  </div>
+
+  <script type="module" src="renderer.js"></script>
+</body>
+</html>
