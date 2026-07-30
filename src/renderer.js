@@ -67,26 +67,35 @@ function pushTranscript(who, text) {
 
 // ── Voice ─────────────────────────────────────────────────────────────────────
 function startVoice() {
-  // Mic meter drives the orb while we listen.
-  createMicMeter((level) => { if (!speaking) orb.setLevel(level); });
+  // Mic meter drives the orb while we listen (also triggers the mic prompt).
+  createMicMeter((level) => { if (!speaking) orb.setLevel(level); }).then((ok) => {
+    if (!ok) setStatus('🎙 Microphone blocked. Click the camera/lock icon in the address bar → Allow → reload.');
+  });
 
   recognizer = createRecognizer({
     wakeWord: settings.wakeWord || 'jarvis',
+    onStart: () => setStatus(`Listening for “${settings.wakeWord || 'Jarvis'}”…`),
     onWake: () => {
       orb.setState('listening');
-      setStatus('Listening…', true);
+      setStatus('Yes? I\'m listening…', true);
     },
     onPartial: (text) => { /* could show live text */ },
     onCommand: (text) => {
       orb.setState('idle');
       handleUserInput(text);
     },
+    onError: (err) => {
+      if (err === 'not-allowed' || err === 'service-not-allowed' || err === 'audio-capture')
+        setStatus('🎙 Microphone blocked. Click the camera/lock icon in the address bar → Allow → reload.');
+      else if (err === 'network')
+        setStatus('Voice needs an internet connection (the browser transcribes online).');
+    },
   });
 
   if (recognizer.supported) {
     recognizer.start();
   } else {
-    setStatus('Voice not available in this build — type to chat.');
+    setStatus('Voice needs Chrome or Edge — open http://localhost:4321 there. You can still type below.');
   }
 
   // Push-to-talk mic button — offline Whisper if enabled, else browser engine.

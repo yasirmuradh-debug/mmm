@@ -85,7 +85,7 @@ export async function recordUtterance({ maxMs = 7000, silenceMs = 1200, onLevel 
 //   onWake()              — the wake word was heard
 //   onCommand(text)       — a full utterance after waking / while active
 //   onPartial(text)       — live partial transcript
-export function createRecognizer({ wakeWord, onWake, onCommand, onPartial }) {
+export function createRecognizer({ wakeWord, onWake, onCommand, onPartial, onError, onStart }) {
   if (!SR) {
     console.warn('SpeechRecognition not supported in this build.');
     return { start() {}, stop() {}, listenOnce() {}, supported: false };
@@ -99,6 +99,17 @@ export function createRecognizer({ wakeWord, onWake, onCommand, onPartial }) {
   let active = false;      // true once woken, until a command completes
   let running = false;
   let manualOnce = false;
+  let fatal = false;       // mic blocked etc. — stop trying to restart
+
+  recog.onstart = () => onStart && onStart();
+  recog.onerror = (e) => {
+    // 'no-speech' and 'aborted' are normal during always-on listening — ignore.
+    if (e.error === 'not-allowed' || e.error === 'service-not-allowed' || e.error === 'audio-capture') {
+      fatal = true;
+      running = false;
+    }
+    if (e.error !== 'no-speech' && e.error !== 'aborted') onError && onError(e.error);
+  };
 
   recog.onresult = (event) => {
     let interim = '';
@@ -133,7 +144,7 @@ export function createRecognizer({ wakeWord, onWake, onCommand, onPartial }) {
 
   recog.onend = () => {
     // Chromium stops periodically; restart to keep always-listening alive.
-    if (running) {
+    if (running && !fatal) {
       try { recog.start(); } catch (_) {}
     }
   };
