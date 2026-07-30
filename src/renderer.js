@@ -514,6 +514,9 @@ function addNotif(text) {
 function wireSettings() {
   const modal = $('settings-modal');
   $('btn-settings').onclick = () => {
+    $('set-provider').value = settings.aiProvider || 'groq';
+    $('set-groq').value = settings.groqApiKey || '';
+    $('set-gemini').value = settings.geminiApiKey || '';
     $('set-claude').value = settings.claudeApiKey || '';
     $('set-eleven').value = settings.elevenLabsApiKey || '';
     $('set-voiceid').value = settings.voiceId || '';
@@ -528,6 +531,9 @@ function wireSettings() {
   $('settings-close').onclick = () => modal.classList.add('hidden');
   $('settings-save').onclick = async () => {
     settings = await J.setSettings({
+      aiProvider: $('set-provider').value,
+      groqApiKey: $('set-groq').value.trim(),
+      geminiApiKey: $('set-gemini').value.trim(),
       claudeApiKey: $('set-claude').value.trim(),
       elevenLabsApiKey: $('set-eleven').value.trim(),
       voiceId: $('set-voiceid').value.trim() || '21m00Tcm4TlvDq8ikWAM',

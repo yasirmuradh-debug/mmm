@@ -122,11 +122,13 @@ body {
 /* ── Tasks ─────────────────────────────────────────────────────────────── */
 .tasks { flex: 1; }
 .task__form { display: flex; gap: 8px; margin-bottom: 10px; }
-.task__form input, .chat-bar input, .modal input {
+.task__form input, .chat-bar input, .modal input, .modal select {
   flex: 1; background: rgba(0,0,0,.25); border: 1px solid var(--stroke);
   border-radius: 12px; padding: 9px 12px; color: var(--text); font-size: 13px;
   outline: none;
 }
+.modal select { width: 100%; }
+.modal select option { background: #10142a; color: var(--text); }
 .task__form input:focus, .chat-bar input:focus { border-color: var(--accent); }
 .mini-btn {
   background: var(--glass-strong); border: 1px solid var(--stroke); color: var(--text);

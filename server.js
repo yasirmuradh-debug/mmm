@@ -27,7 +27,9 @@ const db = {
 };
 
 const DEFAULT_SETTINGS = {
-  claudeApiKey: '', elevenLabsApiKey: '', city: 'Brooklyn',
+  aiProvider: 'groq',           // 'groq' | 'gemini' | 'claude'  (first two are free)
+  groqApiKey: '', geminiApiKey: '', claudeApiKey: '',
+  elevenLabsApiKey: '', city: 'Brooklyn',
   latitude: 40.65, longitude: -73.95, wakeWord: 'jarvis',
   voiceName: '', voiceId: '21m00Tcm4TlvDq8ikWAM', musicFolder: '',
   offlineSpeech: false, whisperModel: 'base.en', pythonCmd: '',
@@ -260,38 +262,113 @@ async function runTool(name, input, flags) {
   } catch (err) { return `Tool ${name} failed: ${err.message}`; }
 }
 
+// The same tools, expressed for each provider's API shape.
+const OPENAI_TOOLS = TOOLS.map((t) => ({ type: 'function', function: { name: t.name, description: t.description, parameters: t.input_schema } }));
+function toGeminiSchema(node) {
+  const map = { object: 'OBJECT', string: 'STRING', number: 'NUMBER', integer: 'INTEGER', boolean: 'BOOLEAN', array: 'ARRAY' };
+  const out = {};
+  if (node.type) out.type = map[node.type] || node.type.toUpperCase();
+  if (node.description) out.description = node.description;
+  if (node.properties) { out.properties = {}; for (const k in node.properties) out.properties[k] = toGeminiSchema(node.properties[k]); }
+  if (node.required) out.required = node.required;
+  if (node.items) out.items = toGeminiSchema(node.items);
+  return out;
+}
+const GEMINI_TOOLS = [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parameters: toGeminiSchema(t.input_schema) })) }];
+
+// ── Groq (free, OpenAI-compatible) ──
+async function chatGroq(apiKey, messages, system, flags) {
+  const convo = [{ role: 'system', content: system }, ...messages];
+  for (let step = 0; step < 6; step++) {
+    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1024, messages: convo, tools: OPENAI_TOOLS, tool_choice: 'auto' }),
+    });
+    const data = await r.json();
+    if (!r.ok) return { ok: false, text: 'Groq error: ' + (data.error?.message || r.status) };
+    const msg = data.choices[0].message;
+    if (msg.tool_calls && msg.tool_calls.length) {
+      convo.push(msg);
+      for (const tc of msg.tool_calls) {
+        let args = {}; try { args = JSON.parse(tc.function.arguments || '{}'); } catch (_) {}
+        convo.push({ role: 'tool', tool_call_id: tc.id, content: await runTool(tc.function.name, args, flags) });
+      }
+      continue;
+    }
+    return { ok: true, text: (msg.content || '').trim() };
+  }
+  return { ok: true, text: 'Done.' };
+}
+
+// ── Google Gemini (free) ──
+async function chatGemini(apiKey, messages, system, flags) {
+  const contents = messages.map((m) => ({ role: m.role === 'assistant' ? 'model' : 'user', parts: [{ text: typeof m.content === 'string' ? m.content : '' }] }));
+  for (let step = 0; step < 6; step++) {
+    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: system }] }, contents, tools: GEMINI_TOOLS }),
+    });
+    const data = await r.json();
+    if (!r.ok) return { ok: false, text: 'Gemini error: ' + (data.error?.message || r.status) };
+    const parts = (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+    const calls = parts.filter((p) => p.functionCall);
+    if (calls.length) {
+      contents.push({ role: 'model', parts: calls.map((p) => ({ functionCall: p.functionCall })) });
+      const responses = [];
+      for (const p of calls) responses.push({ functionResponse: { name: p.functionCall.name, response: { result: await runTool(p.functionCall.name, p.functionCall.args || {}, flags) } } });
+      contents.push({ role: 'user', parts: responses });
+      continue;
+    }
+    return { ok: true, text: parts.filter((p) => p.text).map((p) => p.text).join('').trim() };
+  }
+  return { ok: true, text: 'Done.' };
+}
+
+// ── Anthropic Claude (paid, optional) ──
+async function chatClaude(apiKey, messages, system, flags) {
+  const convo = [...messages];
+  for (let step = 0; step < 6; step++) {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+      body: JSON.stringify({ model: 'claude-sonnet-5', max_tokens: 1024, system, tools: TOOLS, messages: convo }),
+    });
+    const data = await r.json();
+    if (!r.ok) return { ok: false, text: 'Claude API error: ' + (data.error?.message || r.status) };
+    if (data.stop_reason === 'tool_use') {
+      convo.push({ role: 'assistant', content: data.content });
+      const results = [];
+      for (const b of data.content) if (b.type === 'tool_use') results.push({ type: 'tool_result', tool_use_id: b.id, content: await runTool(b.name, b.input || {}, flags) });
+      convo.push({ role: 'user', content: results });
+      continue;
+    }
+    return { ok: true, text: (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('').trim() };
+  }
+  return { ok: true, text: 'Done.' };
+}
+
 app.post('/api/chat', async (req, res) => {
   const settings = db.get('settings', {});
-  const apiKey = settings.claudeApiKey;
-  if (!apiKey) return res.json({ ok: false, text: "I don't have a Claude API key yet. Open Settings (gear icon) and paste your key from console.anthropic.com." });
+  const provider = settings.aiProvider || 'groq';
   const flags = { refresh: false };
-  const convo = [...req.body.messages];
+  const system = (req.body.system || 'You are Jarvis, a concise, warm, witty desktop assistant.') +
+    ' You can control the computer with the provided tools when asked to open, find, launch or note something. Use them, then reply briefly.';
+  const noKey = (where) => res.json({ ok: false, text: `I need a free API key first. Open Settings (gear icon), get one at ${where}, paste it, and Save.` });
   try {
-    for (let step = 0; step < 6; step++) {
-      const r = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: { 'content-type': 'application/json', 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
-        body: JSON.stringify({
-          model: 'claude-sonnet-5', max_tokens: 1024,
-          system: (req.body.system || 'You are Jarvis, a concise, warm, witty desktop assistant.') +
-            ' You can control the computer with the provided tools when asked to open, find, launch or note something. Use them, then reply briefly.',
-          tools: TOOLS, messages: convo,
-        }),
-      });
-      const data = await r.json();
-      if (!r.ok) return res.json({ ok: false, text: 'Claude API error: ' + (data.error?.message || r.status) });
-      if (data.stop_reason === 'tool_use') {
-        convo.push({ role: 'assistant', content: data.content });
-        const results = [];
-        for (const b of data.content) if (b.type === 'tool_use') results.push({ type: 'tool_result', tool_use_id: b.id, content: await runTool(b.name, b.input || {}, flags) });
-        convo.push({ role: 'user', content: results });
-        continue;
-      }
-      const text = (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('').trim();
-      return res.json({ ok: true, text, refresh: flags.refresh });
+    let result;
+    if (provider === 'gemini') {
+      if (!settings.geminiApiKey) return noKey('aistudio.google.com (free, no billing)');
+      result = await chatGemini(settings.geminiApiKey, req.body.messages, system, flags);
+    } else if (provider === 'claude') {
+      if (!settings.claudeApiKey) return noKey('console.anthropic.com');
+      result = await chatClaude(settings.claudeApiKey, req.body.messages, system, flags);
+    } else {
+      if (!settings.groqApiKey) return noKey('console.groq.com (free, no billing)');
+      result = await chatGroq(settings.groqApiKey, req.body.messages, system, flags);
     }
-    res.json({ ok: true, text: 'Done.', refresh: flags.refresh });
-  } catch (err) { res.json({ ok: false, text: 'Could not reach Claude: ' + err.message }); }
+    res.json({ ...result, refresh: flags.refresh });
+  } catch (err) { res.json({ ok: false, text: 'Could not reach the AI: ' + err.message }); }
 });
 
 // ── Serve the UI ────────────────────────────────────────────────────────────

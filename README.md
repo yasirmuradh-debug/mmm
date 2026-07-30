@@ -31,7 +31,7 @@ bundler, beginner-friendly.
 | 3D particle orb that reacts to your voice | ✅ Working | Three.js; pulses when you talk & when Jarvis speaks |
 | Wake word ("Jarvis…") + voice commands | ✅ Working | Built-in engine, or **offline Whisper** (Python) for the mic button |
 | Jarvis speaks back (text-to-speech) | ✅ Working | Built-in voice, or a **realistic ElevenLabs voice** with a key |
-| AI brain (chat, understands your plans) | ✅ Working* | *Needs a free Claude API key — see step 3 |
+| AI brain (chat, understands your plans) | ✅ Working* | *Needs a free key (Groq or Gemini) — see step 3 |
 | Memory ("remind me what I said yesterday") | ✅ Working | Stored on disk, fed back to the AI |
 | Tasks & reminders + OS notifications | ✅ Working | Say/type "…tomorrow" to set a due date |
 | Weather panel (current + 6-day) | ✅ Working | Free, no API key (Open-Meteo) |
@@ -73,27 +73,38 @@ npm run web        # opens http://localhost:4321 in your browser
 
 ---
 
-## 3. Turn on the brain (2 minutes)
+## 3. Turn on the brain — 100% free (2 minutes)
 
 The orb, voice, weather, tasks and music all work with **zero** setup. To let
-Jarvis actually *think* and hold a conversation, give it a Claude API key:
+Jarvis actually *think* and hold a conversation, give it a **free** API key —
+no credit card, no billing. Pick either one:
 
-1. Go to **console.anthropic.com** → sign in → **API Keys** → create one.
-2. In Jarvis, click the **⚙ gear** (top-right) → paste the key into
-   **Claude API key** → **Save**.
+**Option A — Groq (recommended, free & fast)**
+1. Go to **console.groq.com** → sign in (Google/GitHub) → **API Keys** →
+   **Create API Key** → copy it (starts with `gsk_…`).
+2. In Jarvis: **⚙ gear** → set **AI brain** to *Groq* → paste into
+   **Groq API key** → **Save**.
 
-Your key is stored locally and never leaves your machine except to call
-Claude. Now try: say **"Jarvis, what's the weather like?"** or type in the bar.
+**Option B — Google Gemini (free)**
+1. Go to **aistudio.google.com** → sign in with Google → **Get API key** →
+   **Create API key** → copy it (starts with `AIza…`).
+2. In Jarvis: **⚙ gear** → set **AI brain** to *Google Gemini* → paste into
+   **Gemini API key** → **Save**.
+
+Both are free tiers with generous limits — plenty for personal use. Your key is
+stored locally and only used to call that provider. Now try: say
+**"Jarvis, what's the weather like?"** or type in the bar. (Claude is also
+available in the dropdown, but it's paid — the two above are free.)
 
 Optional in the same Settings panel:
 - **City + latitude/longitude** → your local weather (find coords by Googling
   "my city latitude longitude").
 - **Wake word** → change "jarvis" to anything.
-- **ElevenLabs key + Voice** → for a realistic voice. Paste a key from
-  elevenlabs.io (Profile → API key). Leave the Voice field on the default for
-  "Rachel", or paste any voice ID from your ElevenLabs Voice Library. When a key
-  is present Jarvis uses it automatically and the orb pulses to the real
-  waveform; with no key it uses the free built-in voice.
+- **Realistic voice (free):** Jarvis already speaks with the browser's built-in
+  voice for free. For a more realistic one, ElevenLabs has a **free tier** — get
+  a key at elevenlabs.io (Profile → API key), paste it into **ElevenLabs key**,
+  and optionally set a **Voice** ID (default is "Rachel"). It's used only within
+  the free monthly limit; leave it blank to stick with the free browser voice.
 
 ---
 

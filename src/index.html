@@ -132,7 +132,20 @@
         <span>Settings</span>
         <button id="settings-close" class="icon-btn">✕</button>
       </div>
-      <label>Claude API key <span class="muted small">(console.anthropic.com — powers Jarvis's brain)</span></label>
+      <label>AI brain <span class="muted small">(pick a free one — powers Jarvis's thinking)</span></label>
+      <select id="set-provider">
+        <option value="groq">Groq — free &amp; fast (recommended)</option>
+        <option value="gemini">Google Gemini — free</option>
+        <option value="claude">Anthropic Claude — paid</option>
+      </select>
+
+      <label>Groq API key <span class="muted small">(FREE, no card — console.groq.com → API Keys)</span></label>
+      <input id="set-groq" type="password" placeholder="gsk_…" />
+
+      <label>Google Gemini API key <span class="muted small">(FREE, no card — aistudio.google.com → Get API key)</span></label>
+      <input id="set-gemini" type="password" placeholder="AIza…" />
+
+      <label>Claude API key <span class="muted small">(optional, paid — console.anthropic.com)</span></label>
       <input id="set-claude" type="password" placeholder="sk-ant-…" />
 
       <label>ElevenLabs API key <span class="muted small">(optional — realistic voice)</span></label>
