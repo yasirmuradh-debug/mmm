@@ -3,7 +3,7 @@
 // music and chat together. Talks to Node/OS only through window.jarvis (preload).
 // ─────────────────────────────────────────────────────────────────────────────
 import { createOrb } from './orb.js';
-import { createMicMeter, createRecognizer, speak } from './voice.js';
+import { createMicMeter, createRecognizer, speak, playVoiceClip } from './voice.js';
 
 const $ = (id) => document.getElementById(id);
 const J = window.jarvis;
@@ -104,7 +104,20 @@ function speakingPulse() {
   setTimeout(speakingPulse, 90);
 }
 
-function jarvisSpeak(text) {
+async function jarvisSpeak(text) {
+  // Prefer the realistic ElevenLabs voice when a key is set; the orb then
+  // pulses to the real waveform. Fall back to the built-in voice otherwise.
+  if (settings.elevenLabsApiKey) {
+    const res = await J.tts(text);
+    if (res.ok) {
+      speaking = true;
+      orb.setState('speaking');
+      await playVoiceClip(res.audio, { onLevel: (l) => { if (speaking) orb.setLevel(l); } });
+      speaking = false; orb.setState('idle'); orb.setLevel(0); setStatus('Ready.');
+      return;
+    }
+    if (res.reason === 'api-error') setStatus('Voice error: ' + (res.message || '') + ' — using built-in voice.');
+  }
   speak(text, {
     voiceName: settings.voiceName,
     onStart: () => { speaking = true; orb.setState('speaking'); speakingPulse(); },
@@ -295,6 +308,7 @@ function wireSettings() {
   $('btn-settings').onclick = () => {
     $('set-claude').value = settings.claudeApiKey || '';
     $('set-eleven').value = settings.elevenLabsApiKey || '';
+    $('set-voiceid').value = settings.voiceId || '';
     $('set-city').value = settings.city || '';
     $('set-lat').value = settings.latitude ?? '';
     $('set-lon').value = settings.longitude ?? '';
@@ -306,6 +320,7 @@ function wireSettings() {
     settings = await J.setSettings({
       claudeApiKey: $('set-claude').value.trim(),
       elevenLabsApiKey: $('set-eleven').value.trim(),
+      voiceId: $('set-voiceid').value.trim() || '21m00Tcm4TlvDq8ikWAM',
       city: $('set-city').value.trim(),
       latitude: parseFloat($('set-lat').value) || settings.latitude,
       longitude: parseFloat($('set-lon').value) || settings.longitude,

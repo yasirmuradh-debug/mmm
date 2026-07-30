@@ -30,7 +30,7 @@ bundler, beginner-friendly.
 | Glassmorphism dashboard UI | ✅ Working | Matches the reference design |
 | 3D particle orb that reacts to your voice | ✅ Working | Three.js; pulses when you talk & when Jarvis speaks |
 | Wake word ("Jarvis…") + voice commands | ✅ Working | Uses the built-in browser speech engine |
-| Jarvis speaks back (text-to-speech) | ✅ Working | Built-in voice; upgradeable to a realistic one |
+| Jarvis speaks back (text-to-speech) | ✅ Working | Built-in voice, or a **realistic ElevenLabs voice** with a key |
 | AI brain (chat, understands your plans) | ✅ Working* | *Needs a free Claude API key — see step 3 |
 | Memory ("remind me what I said yesterday") | ✅ Working | Stored on disk, fed back to the AI |
 | Tasks & reminders + OS notifications | ✅ Working | Say/type "…tomorrow" to set a due date |
@@ -73,7 +73,11 @@ Optional in the same Settings panel:
 - **City + latitude/longitude** → your local weather (find coords by Googling
   "my city latitude longitude").
 - **Wake word** → change "jarvis" to anything.
-- **ElevenLabs key** → for a realistic voice (wiring in the roadmap).
+- **ElevenLabs key + Voice** → for a realistic voice. Paste a key from
+  elevenlabs.io (Profile → API key). Leave the Voice field on the default for
+  "Rachel", or paste any voice ID from your ElevenLabs Voice Library. When a key
+  is present Jarvis uses it automatically and the orb pulses to the real
+  waveform; with no key it uses the free built-in voice.
 
 ---
 
@@ -99,9 +103,12 @@ Rule of thumb: anything touching your files, network or keys goes in
 
 Each step is self-contained. Do them one at a time.
 
-### A. Realistic voice (ElevenLabs)
-Replace `speak()` in `src/voice.js` with a call to a new main-process handler
-that hits the ElevenLabs API and plays the returned audio. ~30 lines.
+### A. Realistic voice (ElevenLabs) — ✅ done
+Add your ElevenLabs key in Settings and Jarvis speaks with a realistic voice
+(low-latency `eleven_turbo_v2_5` model), with the orb pulsing to the real
+waveform. Implemented in `main.js` (`voice:tts` handler), `src/voice.js`
+(`playVoiceClip`) and `src/renderer.js` (`jarvisSpeak`), with automatic
+fallback to the built-in voice when no key is set.
 
 ### B. Better wake word & offline speech
 The browser speech engine needs internet and can be flaky. For a rock-solid,

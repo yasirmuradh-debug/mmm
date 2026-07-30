@@ -37,4 +37,7 @@ contextBridge.exposeInMainWorld('jarvis', {
 
   // Assistant brain
   chat: (payload) => ipcRenderer.invoke('assistant:chat', payload),
+
+  // Realistic voice (ElevenLabs); returns base64 MP3 or a fallback signal
+  tts: (text) => ipcRenderer.invoke('voice:tts', { text }),
 });

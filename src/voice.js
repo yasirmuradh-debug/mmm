@@ -101,7 +101,51 @@ export function createRecognizer({ wakeWord, onWake, onCommand, onPartial }) {
   };
 }
 
-// ── Text to speech ──────────────────────────────────────────────────────────
+// ── Realistic voice playback ────────────────────────────────────────────────
+// Plays a base64 MP3 (from ElevenLabs via the main process) and reports the
+// real, live amplitude so the orb pulses to the actual voice. Returns a promise
+// that resolves when playback finishes.
+let ttsCtx;
+export function playVoiceClip(base64, { onLevel, onStart, onEnd } = {}) {
+  return new Promise((resolve) => {
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: 'audio/mpeg' });
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+
+    ttsCtx = ttsCtx || new AudioContext();
+    if (ttsCtx.state === 'suspended') ttsCtx.resume();
+    const src = ttsCtx.createMediaElementSource(audio);
+    const analyser = ttsCtx.createAnalyser();
+    analyser.fftSize = 256;
+    src.connect(analyser);
+    analyser.connect(ttsCtx.destination);
+    const data = new Uint8Array(analyser.frequencyBinCount);
+
+    let raf;
+    const tick = () => {
+      analyser.getByteFrequencyData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum += data[i];
+      onLevel && onLevel(Math.min(1, sum / data.length / 70));
+      raf = requestAnimationFrame(tick);
+    };
+
+    const finish = () => {
+      cancelAnimationFrame(raf);
+      URL.revokeObjectURL(url);
+      onEnd && onEnd();
+      resolve();
+    };
+
+    audio.onplay = () => { onStart && onStart(); tick(); };
+    audio.onended = finish;
+    audio.onerror = finish;
+    audio.play().catch(finish);
+  });
+}
+
+// ── Text to speech (built-in browser voice — the free fallback) ──────────────
 export function speak(text, { voiceName, onStart, onEnd } = {}) {
   if (!('speechSynthesis' in window)) { onEnd && onEnd(); return; }
   window.speechSynthesis.cancel();

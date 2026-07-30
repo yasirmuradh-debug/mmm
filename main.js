@@ -77,6 +77,7 @@ ipcMain.handle('settings:get', () => db.get('settings', {
   longitude: -73.95,
   wakeWord: 'jarvis',
   voiceName: '',
+  voiceId: '21m00Tcm4TlvDq8ikWAM', // ElevenLabs "Rachel" — a sensible default
   musicFolder: '',
 }));
 ipcMain.handle('settings:set', (_e, next) => {
@@ -200,5 +201,40 @@ ipcMain.handle('assistant:chat', async (_e, { messages, system }) => {
     return { ok: true, text };
   } catch (err) {
     return { ok: false, text: 'Could not reach Claude: ' + err.message };
+  }
+});
+
+// ── Realistic voice: ElevenLabs text-to-speech ──────────────────────────────
+// Returns the spoken audio as base64 MP3 so the renderer can play it (and drive
+// the orb from the real waveform). Falls back to the built-in browser voice in
+// the UI when there's no key or this fails.
+ipcMain.handle('voice:tts', async (_e, { text }) => {
+  const settings = db.get('settings', {});
+  const apiKey = settings.elevenLabsApiKey;
+  if (!apiKey) return { ok: false, reason: 'no-key' };
+  const voiceId = settings.voiceId || '21m00Tcm4TlvDq8ikWAM';
+  try {
+    const res = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voiceId}`, {
+      method: 'POST',
+      headers: {
+        'xi-api-key': apiKey,
+        'content-type': 'application/json',
+        accept: 'audio/mpeg',
+      },
+      body: JSON.stringify({
+        text,
+        model_id: 'eleven_turbo_v2_5', // low-latency model, good for an assistant
+        voice_settings: { stability: 0.5, similarity_boost: 0.75 },
+      }),
+    });
+    if (!res.ok) {
+      let msg = res.status;
+      try { msg = (await res.json()).detail?.message || msg; } catch (_) {}
+      return { ok: false, reason: 'api-error', message: String(msg) };
+    }
+    const buf = Buffer.from(await res.arrayBuffer());
+    return { ok: true, audio: buf.toString('base64') };
+  } catch (err) {
+    return { ok: false, reason: 'network', message: err.message };
   }
 });
