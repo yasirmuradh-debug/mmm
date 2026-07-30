@@ -46,27 +46,30 @@ bundler, beginner-friendly.
 ## 2. Run it
 
 You need **Node.js** installed first (get it from https://nodejs.org — the
-"LTS" button).
+"LTS" button). That's the only requirement — Jarvis runs as a small local web
+app in your browser, so there's nothing heavy to download.
 
 ### Easiest — one click
 - **Windows:** double-click **`Start-Jarvis.bat`**
 - **Mac/Linux:** double-click **`start-jarvis.command`** (first time you may
   need to right-click → Open, or run `chmod +x start-jarvis.command`)
 
-It installs everything, fixes the Electron download step automatically (newer
-Node/npm blocks it otherwise), and launches Jarvis. First run takes a few
-minutes; after that it opens fast.
+It installs dependencies the first time, then opens Jarvis in your browser at
+**http://localhost:4321**. Leave the little black window open while you use it
+(closing it stops Jarvis). Allow **microphone** and **notification** access
+when the browser asks.
 
 ### Or by hand
 ```bash
 npm install
-node node_modules/electron/install.js   # ensures Electron downloaded (needed on new Node)
-npm start
+npm run web        # opens http://localhost:4321 in your browser
 ```
 
-The first time, allow microphone access when your OS asks.
-
-> On Windows/Mac the window has custom minimise/close buttons in the top-right.
+> **Why a browser, not a desktop window?** It runs entirely on your machine at
+> `localhost` — a private Node server does all the file/voice/WhatsApp work; the
+> browser just shows the interface. This avoids the large Electron download
+> (which some Node setups block). An Electron desktop-window version is still in
+> the repo (`npm start`) if you ever want it.
 
 ---
 

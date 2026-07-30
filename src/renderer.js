@@ -376,7 +376,7 @@ function playTrack(i) {
   musicMode = 'offline';
   if (ytPlayer && ytReady) { try { ytPlayer.pauseVideo(); } catch (_) {} }
   trackIndex = i;
-  audio.src = 'file://' + tracks[i].path;
+  audio.src = J.musicUrl ? J.musicUrl(tracks[i].path) : 'file://' + tracks[i].path;
   audio.play().catch(() => {});
   setMusicTitle(tracks[i].name, false);
   renderTracks();

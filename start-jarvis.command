@@ -1,5 +1,5 @@
 #!/bin/bash
-# Jarvis setup + launch for macOS / Linux. Double-click (Mac) or run: ./start-jarvis.command
+# Jarvis launcher for macOS / Linux. Double-click (Mac) or run: ./start-jarvis.command
 cd "$(dirname "$0")" || exit 1
 
 echo ""
@@ -15,18 +15,12 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -d "node_modules/electron/dist" ]; then
-  echo "  [1/3] Installing dependencies (first time only - a few minutes)..."
+if [ ! -d "node_modules/express" ]; then
+  echo "  Installing dependencies (first time only - a couple of minutes)..."
   npm install || { echo "  [X] Install failed."; read -n 1 -s -r -p "  Press any key..."; exit 1; }
-
-  echo "  [2/3] Finishing Electron setup..."
-  npm approve-scripts electron  >/dev/null 2>&1
-  npm approve-scripts puppeteer >/dev/null 2>&1
-  node node_modules/electron/install.js
-
-  echo "  [optional] Preparing WhatsApp support..."
-  [ -f node_modules/puppeteer/install.mjs ] && node node_modules/puppeteer/install.mjs >/dev/null 2>&1
 fi
 
-echo "  [3/3] Starting Jarvis..."
-npm start
+echo "  Starting Jarvis... a browser tab will open at http://localhost:4321"
+echo "  (Keep this window open. Close it to stop Jarvis.)"
+echo ""
+node server.js
