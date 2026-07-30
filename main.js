@@ -7,6 +7,7 @@ const { app, BrowserWindow, ipcMain, Notification, dialog, shell } = require('el
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const { spawn } = require('child_process');
 const whatsapp = require('./whatsapp');
 
 // electron-store gives us a tiny JSON database on disk for tasks, memory & settings.
@@ -168,7 +169,99 @@ ipcMain.handle('music:scan', async (_e, folder) => {
   return tracks.slice(0, 500);
 });
 
-// ── Assistant brain: proxy chat to the Claude API ───────────────────────────
+// ── Computer-control tools the assistant can use ────────────────────────────
+// Each is a small, safe capability. Nothing here deletes files or runs raw
+// shell strings — apps are launched with argument arrays (no shell), so a name
+// can't smuggle in extra commands.
+const TOOLS = [
+  { name: 'open_app', description: 'Open a desktop application by its name, e.g. "Spotify", "Calculator", "Visual Studio Code".',
+    input_schema: { type: 'object', properties: { name: { type: 'string' } }, required: ['name'] } },
+  { name: 'open_path', description: 'Open a file or folder in the default app / file manager. Absolute path.',
+    input_schema: { type: 'object', properties: { path: { type: 'string' } }, required: ['path'] } },
+  { name: 'open_url', description: 'Open a web page (https URL) in the default browser.',
+    input_schema: { type: 'object', properties: { url: { type: 'string' } }, required: ['url'] } },
+  { name: 'search_files', description: "Search the user's home directory for files/folders whose name contains the query. Returns up to 20 paths.",
+    input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
+  { name: 'list_folder', description: 'List the contents of a folder. Absolute path; omit to list the home folder.',
+    input_schema: { type: 'object', properties: { path: { type: 'string' } } } },
+  { name: 'add_task', description: 'Add a task/reminder for the user. due is an optional date string.',
+    input_schema: { type: 'object', properties: { text: { type: 'string' }, due: { type: 'string' } }, required: ['text'] } },
+  { name: 'remember', description: 'Save a note to long-term memory so you can recall it later.',
+    input_schema: { type: 'object', properties: { note: { type: 'string' } }, required: ['note'] } },
+];
+
+function openApp(name) {
+  if (process.platform === 'darwin') spawn('open', ['-a', name], { detached: true, stdio: 'ignore' }).unref();
+  else if (process.platform === 'win32') spawn('cmd', ['/c', 'start', '', name], { detached: true, stdio: 'ignore' }).unref();
+  else spawn('xdg-open', [name], { detached: true, stdio: 'ignore' }).unref();
+}
+
+function searchFiles(query) {
+  const q = query.toLowerCase();
+  const root = os.homedir();
+  const skip = new Set(['node_modules', 'Library', 'AppData', '.git', '.cache']);
+  const found = [];
+  let budget = 20000; // cap entries visited so we never hang
+  const walk = (dir, depth) => {
+    if (depth > 5 || budget <= 0 || found.length >= 20) return;
+    let entries;
+    try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+    for (const e of entries) {
+      if (budget-- <= 0 || found.length >= 20) return;
+      if (e.name.startsWith('.') || skip.has(e.name)) continue;
+      const full = path.join(dir, e.name);
+      if (e.name.toLowerCase().includes(q)) found.push(full);
+      if (e.isDirectory()) walk(full, depth + 1);
+    }
+  };
+  walk(root, 0);
+  return found;
+}
+
+async function runTool(name, input, flags) {
+  try {
+    switch (name) {
+      case 'open_app': openApp(input.name); return `Opened ${input.name}.`;
+      case 'open_path': {
+        if (!fs.existsSync(input.path)) return `No such path: ${input.path}`;
+        await shell.openPath(input.path); return `Opened ${input.path}.`;
+      }
+      case 'open_url': {
+        const url = /^https?:\/\//i.test(input.url) ? input.url : 'https://' + input.url;
+        await shell.openExternal(url); return `Opened ${url}.`;
+      }
+      case 'search_files': {
+        const hits = searchFiles(input.query);
+        return hits.length ? hits.join('\n') : 'No matches found.';
+      }
+      case 'list_folder': {
+        const dir = input.path || os.homedir();
+        const items = fs.readdirSync(dir, { withFileTypes: true })
+          .filter((e) => !e.name.startsWith('.'))
+          .map((e) => (e.isDirectory() ? e.name + '/' : e.name));
+        return items.slice(0, 100).join('\n') || '(empty)';
+      }
+      case 'add_task': {
+        const tasks = db.get('tasks', []);
+        tasks.push({ text: input.text, done: false, due: input.due || '', notified: false });
+        db.set('tasks', tasks);
+        flags.refresh = true;
+        return `Task added: ${input.text}`;
+      }
+      case 'remember': {
+        const memory = db.get('memory', []);
+        memory.push({ text: input.note, at: new Date().toISOString() });
+        db.set('memory', memory);
+        return 'Noted.';
+      }
+      default: return `Unknown tool ${name}.`;
+    }
+  } catch (err) {
+    return `Tool ${name} failed: ${err.message}`;
+  }
+}
+
+// ── Assistant brain: agentic chat with tool use ─────────────────────────────
 // The API key stays in the main process and is never exposed to the web UI.
 ipcMain.handle('assistant:chat', async (_e, { messages, system }) => {
   const settings = db.get('settings', {});
@@ -179,27 +272,46 @@ ipcMain.handle('assistant:chat', async (_e, { messages, system }) => {
       text: "I don't have a Claude API key yet. Open Settings (gear icon) and paste your key from console.anthropic.com to switch on my brain.",
     };
   }
+  const flags = { refresh: false };
+  const convo = [...messages];
   try {
-    const res = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-5',
-        max_tokens: 1024,
-        system: system || 'You are Jarvis, a concise, warm, witty desktop assistant.',
-        messages,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      return { ok: false, text: 'Claude API error: ' + (data.error?.message || res.status) };
+    for (let step = 0; step < 6; step++) { // allow a few tool round-trips
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-5',
+          max_tokens: 1024,
+          system: (system || 'You are Jarvis, a concise, warm, witty desktop assistant.') +
+            ' You can control the computer with the provided tools when the user asks you to open, find, launch or note something. Use them, then reply briefly.',
+          tools: TOOLS,
+          messages: convo,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) return { ok: false, text: 'Claude API error: ' + (data.error?.message || res.status) };
+
+      if (data.stop_reason === 'tool_use') {
+        convo.push({ role: 'assistant', content: data.content });
+        const results = [];
+        for (const block of data.content) {
+          if (block.type === 'tool_use') {
+            const out = await runTool(block.name, block.input || {}, flags);
+            results.push({ type: 'tool_result', tool_use_id: block.id, content: out });
+          }
+        }
+        convo.push({ role: 'user', content: results });
+        continue; // let the model see the results and respond
+      }
+
+      const text = (data.content || []).filter((c) => c.type === 'text').map((c) => c.text).join('').trim();
+      return { ok: true, text, refresh: flags.refresh };
     }
-    const text = (data.content || []).map((c) => c.text).join('').trim();
-    return { ok: true, text };
+    return { ok: true, text: 'Done.', refresh: flags.refresh };
   } catch (err) {
     return { ok: false, text: 'Could not reach Claude: ' + err.message };
   }

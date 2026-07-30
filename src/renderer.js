@@ -153,6 +153,8 @@ async function handleUserInput(text) {
   const reply = res.text || '…';
   conversation.push({ role: 'assistant', content: reply });
 
+  if (res.refresh) loadTasks(); // Jarvis added a task/reminder via a tool
+
   pushTranscript('jarvis', reply);
   jarvisSpeak(reply);
 

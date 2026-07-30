@@ -38,6 +38,7 @@ bundler, beginner-friendly.
 | Offline music player | ✅ Working | Point it at your music folder |
 | WhatsApp notifications | ✅ Working | Link via QR; new messages + unread counts, Jarvis announces them |
 | File access | ✅ Working (API) | Main process can browse/open any folder |
+| Computer control (agent) | ✅ Working | Jarvis opens apps/files/URLs, searches files & adds tasks on command |
 
 ---
 
@@ -136,10 +137,15 @@ Add a search box that uses the YouTube Data API (or `ytdl-core` to stream), and
 route playback through the same `<audio>`/`<video>` element the offline player
 uses.
 
-### E. Deeper computer control
-`main.js` already has file browse/open. Extend it with an "actions" layer the
-AI can call (open apps, search files, control volume). Give Claude a list of
-allowed tools and let it request them — that turns Jarvis into a true agent.
+### E. Deeper computer control — ✅ done
+Jarvis is now an agent. Say things like *"Jarvis, open Spotify"*, *"open my
+Downloads folder"*, *"find my resume"*, *"open youtube.com"* or *"remind me to
+pay rent tomorrow"* and it does it. Implemented with Claude **tool use**: the
+model picks from a set of safe tools (`open_app`, `open_path`, `open_url`,
+`search_files`, `list_folder`, `add_task`, `remember`) that `main.js` executes,
+looping until the task is done. Apps launch with argument arrays (no raw shell),
+and there are no delete/exec tools, so it can't run arbitrary commands. To add a
+new capability, add one entry to `TOOLS` and a `case` in `runTool()`.
 
 ### F. Package as a real app
 ```bash
