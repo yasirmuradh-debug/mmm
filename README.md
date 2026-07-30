@@ -43,17 +43,28 @@ bundler, beginner-friendly.
 
 ---
 
-## 2. Run it (step by step)
+## 2. Run it
 
-You need **Node.js** (you have it). In a terminal, inside this folder:
+You need **Node.js** installed first (get it from https://nodejs.org — the
+"LTS" button).
 
+### Easiest — one click
+- **Windows:** double-click **`Start-Jarvis.bat`**
+- **Mac/Linux:** double-click **`start-jarvis.command`** (first time you may
+  need to right-click → Open, or run `chmod +x start-jarvis.command`)
+
+It installs everything, fixes the Electron download step automatically (newer
+Node/npm blocks it otherwise), and launches Jarvis. First run takes a few
+minutes; after that it opens fast.
+
+### Or by hand
 ```bash
-npm install      # downloads Electron + one small helper (one-time, a few minutes)
-npm start        # launches Jarvis
+npm install
+node node_modules/electron/install.js   # ensures Electron downloaded (needed on new Node)
+npm start
 ```
 
-That's it — the app window opens. The first time, allow microphone access
-when your OS asks.
+The first time, allow microphone access when your OS asks.
 
 > On Windows/Mac the window has custom minimise/close buttons in the top-right.
 
