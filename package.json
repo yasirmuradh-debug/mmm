@@ -15,7 +15,8 @@
   },
   "optionalDependencies": {
     "whatsapp-web.js": "^1.23.0",
-    "qrcode": "^1.5.3"
+    "qrcode": "^1.5.3",
+    "yt-search": "^2.10.4"
   },
   "devDependencies": {
     "electron": "^31.0.0",

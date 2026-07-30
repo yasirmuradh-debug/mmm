@@ -169,6 +169,26 @@ ipcMain.handle('music:scan', async (_e, folder) => {
   return tracks.slice(0, 500);
 });
 
+// ── YouTube search (playback happens in the UI's official embed player) ──────
+async function ytSearch(query) {
+  let yts;
+  try { yts = require('yt-search'); } catch (_) { return { ok: false, error: 'not-installed' }; }
+  try {
+    const r = await yts(query);
+    const videos = (r.videos || []).slice(0, 12).map((v) => ({
+      videoId: v.videoId,
+      title: v.title,
+      author: v.author ? v.author.name : '',
+      duration: v.timestamp || '',
+      thumbnail: v.thumbnail || '',
+    }));
+    return { ok: true, videos };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+}
+ipcMain.handle('youtube:search', (_e, query) => ytSearch(query));
+
 // ── Computer-control tools the assistant can use ────────────────────────────
 // Each is a small, safe capability. Nothing here deletes files or runs raw
 // shell strings — apps are launched with argument arrays (no shell), so a name
@@ -188,6 +208,8 @@ const TOOLS = [
     input_schema: { type: 'object', properties: { text: { type: 'string' }, due: { type: 'string' } }, required: ['text'] } },
   { name: 'remember', description: 'Save a note to long-term memory so you can recall it later.',
     input_schema: { type: 'object', properties: { note: { type: 'string' } }, required: ['note'] } },
+  { name: 'play_youtube', description: 'Play music or a video from YouTube by search terms, e.g. "lofi hip hop", "Bohemian Rhapsody live".',
+    input_schema: { type: 'object', properties: { query: { type: 'string' } }, required: ['query'] } },
 ];
 
 function openApp(name) {
@@ -253,6 +275,16 @@ async function runTool(name, input, flags) {
         memory.push({ text: input.note, at: new Date().toISOString() });
         db.set('memory', memory);
         return 'Noted.';
+      }
+      case 'play_youtube': {
+        const r = await ytSearch(input.query);
+        if (!r.ok) return r.error === 'not-installed'
+          ? 'YouTube support needs its package — run: npm install yt-search'
+          : 'Search failed: ' + r.error;
+        if (!r.videos.length) return 'No results for ' + input.query;
+        const top = r.videos[0];
+        if (mainWindow) mainWindow.webContents.send('yt:play', { videoId: top.videoId, title: top.title });
+        return `Now playing ${top.title}.`;
       }
       default: return `Unknown tool ${name}.`;
     }

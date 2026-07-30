@@ -48,4 +48,9 @@ contextBridge.exposeInMainWorld('jarvis', {
   whatsappLogout: () => ipcRenderer.invoke('whatsapp:logout'),
   // Subscribe to live WhatsApp events (qr / ready / message / disconnected)
   onWhatsApp: (cb) => ipcRenderer.on('whatsapp:event', (_e, payload) => cb(payload)),
+
+  // YouTube
+  ytSearch: (query) => ipcRenderer.invoke('youtube:search', query),
+  // Jarvis asked to play something by voice
+  onYtPlay: (cb) => ipcRenderer.on('yt:play', (_e, data) => cb(data)),
 });

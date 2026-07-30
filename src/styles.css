@@ -195,6 +195,9 @@ body {
 .music__controls { display: flex; gap: 2px; }
 .music__list li { padding: 7px 6px; font-size: 12px; cursor: pointer; border-bottom: 1px solid rgba(255,255,255,.05); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .music__list li:hover, .music__list li.playing { background: var(--glass-strong); color: var(--accent); }
+.yt-player { border-radius: 12px; overflow: hidden; margin-bottom: 10px; }
+.yt-player:empty { display: none; }
+.yt-player iframe { display: block; width: 100%; border: 0; border-radius: 12px; }
 
 /* ── Modal ─────────────────────────────────────────────────────────────── */
 .modal { position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;

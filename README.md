@@ -36,6 +36,7 @@ bundler, beginner-friendly.
 | Tasks & reminders + OS notifications | ✅ Working | Say/type "…tomorrow" to set a due date |
 | Weather panel (current + 6-day) | ✅ Working | Free, no API key (Open-Meteo) |
 | Offline music player | ✅ Working | Point it at your music folder |
+| YouTube music (search + play) | ✅ Working | Search in the panel or say "Jarvis, play …" |
 | WhatsApp notifications | ✅ Working | Link via QR; new messages + unread counts, Jarvis announces them |
 | File access | ✅ Working (API) | Main process can browse/open any folder |
 | Computer control (agent) | ✅ Working | Jarvis opens apps/files/URLs, searches files & adds tasks on command |
@@ -132,10 +133,14 @@ your unread counts (they're fed into its context). Implemented in `whatsapp.js`
 > that step fails, the rest of Jarvis still runs and the panel will tell you to
 > run `npm install whatsapp-web.js qrcode` when you click Connect.
 
-### D. YouTube / online music
-Add a search box that uses the YouTube Data API (or `ytdl-core` to stream), and
-route playback through the same `<audio>`/`<video>` element the offline player
-uses.
+### D. YouTube / online music — ✅ done
+Type in the **Search YouTube…** box in the Music panel to find songs/videos and
+click a result to play it in the embedded player, or just say
+*"Jarvis, play lofi hip hop"*. Search uses `yt-search` (no API key), playback
+uses YouTube's official IFrame embed, and the same ⏮ ⏯ ⏭ controls drive both
+YouTube and your offline files. Implemented in `main.js` (`youtube:search` +
+`play_youtube` tool) and `src/renderer.js`. `yt-search` is an optional
+dependency; the panel tells you to `npm install yt-search` if it's missing.
 
 ### E. Deeper computer control — ✅ done
 Jarvis is now an agent. Say things like *"Jarvis, open Spotify"*, *"open my

@@ -270,11 +270,18 @@ function startReminderLoop() {
   }, 60000);
 }
 
-// ── Music ─────────────────────────────────────────────────────────────────────
+// ── Music (offline files + YouTube) ─────────────────────────────────────────
 let tracks = [];
 let trackIndex = -1;
 const audio = $('audio');
+
+// YouTube state
+let ytPlayer = null, ytReady = false, ytPlaying = false;
+let ytResults = [], ytIndex = -1, pendingYt = null;
+let musicMode = 'offline'; // 'offline' | 'youtube'
+
 function wireMusic() {
+  // Offline folder
   $('btn-music-folder').onclick = async () => {
     const folder = await J.pickFolder();
     if (!folder) return;
@@ -282,32 +289,120 @@ function wireMusic() {
     tracks = await J.scanMusic(folder);
     renderTracks();
   };
-  $('music-play').onclick = () => (audio.paused ? audio.play() : audio.pause());
-  $('music-next').onclick = () => playTrack(trackIndex + 1);
-  $('music-prev').onclick = () => playTrack(trackIndex - 1);
-  audio.onplay = () => ($('music-play').textContent = '⏸');
-  audio.onpause = () => ($('music-play').textContent = '▶');
+
+  // Transport controls branch by which source is active.
+  $('music-play').onclick = () => {
+    if (musicMode === 'youtube' && ytPlayer) {
+      ytPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+    } else {
+      audio.paused ? audio.play() : audio.pause();
+    }
+  };
+  $('music-next').onclick = () => (musicMode === 'youtube' ? playYtIndex(ytIndex + 1) : playTrack(trackIndex + 1));
+  $('music-prev').onclick = () => (musicMode === 'youtube' ? playYtIndex(ytIndex - 1) : playTrack(trackIndex - 1));
+
+  audio.onplay = () => { if (musicMode === 'offline') $('music-play').textContent = '⏸'; };
+  audio.onpause = () => { if (musicMode === 'offline') $('music-play').textContent = '▶'; };
   audio.onended = () => playTrack(trackIndex + 1);
+
+  // YouTube search
+  $('yt-form').onsubmit = async (e) => {
+    e.preventDefault();
+    const q = $('yt-input').value.trim();
+    if (!q) return;
+    setMusicTitle('Searching…', true);
+    const r = await J.ytSearch(q);
+    if (!r.ok) {
+      setMusicTitle(r.error === 'not-installed' ? 'Run: npm install yt-search' : 'Search failed', true);
+      return;
+    }
+    ytResults = r.videos; ytIndex = -1;
+    renderYtResults();
+    setMusicTitle(r.videos.length ? 'Pick a result ▸' : 'No results', true);
+  };
+
+  // Jarvis can start playback by voice ("play lofi hip hop").
+  J.onYtPlay(({ videoId, title }) => {
+    ytResults = [{ videoId, title }];
+    ytIndex = 0;
+    cueYouTube(videoId, title);
+    renderYtResults();
+  });
+
+  loadYouTubeAPI();
 
   if (settings.musicFolder) {
     J.scanMusic(settings.musicFolder).then((t) => { tracks = t; renderTracks(); });
   }
 }
+
+function setMusicTitle(text, muted) {
+  const el = $('music-title');
+  el.textContent = text;
+  el.classList.toggle('muted', !!muted);
+}
+
+// ── Offline files ────────────────────────────────────────────────────────────
 function renderTracks() {
   $('music-list').innerHTML = tracks.map((t, i) =>
-    `<li data-i="${i}" class="${i === trackIndex ? 'playing' : ''}">${escapeHtml(t.name)}</li>`).join('');
+    `<li data-i="${i}" class="${musicMode === 'offline' && i === trackIndex ? 'playing' : ''}">${escapeHtml(t.name)}</li>`).join('');
   $('music-list').querySelectorAll('li').forEach((li) => {
     li.onclick = () => playTrack(+li.dataset.i);
   });
 }
 function playTrack(i) {
   if (i < 0 || i >= tracks.length) return;
+  musicMode = 'offline';
+  if (ytPlayer && ytReady) { try { ytPlayer.pauseVideo(); } catch (_) {} }
   trackIndex = i;
   audio.src = 'file://' + tracks[i].path;
   audio.play().catch(() => {});
-  $('music-title').textContent = tracks[i].name;
-  $('music-title').classList.remove('muted');
+  setMusicTitle(tracks[i].name, false);
   renderTracks();
+}
+
+// ── YouTube ──────────────────────────────────────────────────────────────────
+function loadYouTubeAPI() {
+  window.onYouTubeIframeAPIReady = () => {
+    ytPlayer = new YT.Player('yt-player', {
+      height: '150', width: '100%',
+      playerVars: { autoplay: 0, controls: 1, rel: 0, modestbranding: 1 },
+      events: {
+        onReady: () => {
+          ytReady = true;
+          if (pendingYt) { const p = pendingYt; pendingYt = null; cueYouTube(p.videoId, p.title); }
+        },
+        onStateChange: (e) => {
+          ytPlaying = e.data === YT.PlayerState.PLAYING;
+          if (musicMode === 'youtube') $('music-play').textContent = ytPlaying ? '⏸' : '▶';
+          if (e.data === YT.PlayerState.ENDED && musicMode === 'youtube') playYtIndex(ytIndex + 1);
+        },
+      },
+    });
+  };
+  const tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+}
+function renderYtResults() {
+  $('music-list').innerHTML = ytResults.map((v, i) =>
+    `<li data-i="${i}" class="${musicMode === 'youtube' && i === ytIndex ? 'playing' : ''}">${escapeHtml(v.title)}${v.duration ? ' · ' + v.duration : ''}</li>`).join('');
+  $('music-list').querySelectorAll('li').forEach((li) => {
+    li.onclick = () => playYtIndex(+li.dataset.i);
+  });
+}
+function playYtIndex(i) {
+  if (i < 0 || i >= ytResults.length) return;
+  ytIndex = i;
+  cueYouTube(ytResults[i].videoId, ytResults[i].title);
+  renderYtResults();
+}
+function cueYouTube(videoId, title) {
+  musicMode = 'youtube';
+  audio.pause();
+  setMusicTitle(title, false);
+  if (ytReady && ytPlayer) ytPlayer.loadVideoById(videoId);
+  else pendingYt = { videoId, title }; // player not ready yet — play on ready
 }
 
 // ── WhatsApp ──────────────────────────────────────────────────────────────────

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' https://esm.sh 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://esm.sh; media-src 'self' file: blob: data:;" />
+    content="default-src 'self'; script-src 'self' https://esm.sh https://www.youtube.com https://s.ytimg.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://esm.sh; media-src 'self' file: blob: data:; frame-src https://www.youtube.com https://www.youtube-nocookie.com;" />
   <title>Jarvis</title>
   <link rel="stylesheet" href="styles.css" />
   <!-- Import map lets us `import * as THREE from 'three'` with no build step. -->
@@ -104,8 +104,13 @@
       <div class="glass panel music">
         <div class="panel__head">
           <span>Music</span>
-          <button id="btn-music-folder" class="mini-btn" title="Choose music folder">📁</button>
+          <button id="btn-music-folder" class="mini-btn" title="Choose offline music folder">📁</button>
         </div>
+        <form id="yt-form" class="task__form">
+          <input id="yt-input" placeholder="Search YouTube…" autocomplete="off" />
+          <button type="submit" class="mini-btn">🔍</button>
+        </form>
+        <div id="yt-player" class="yt-player"></div>
         <div class="music__now">
           <div id="music-title" class="music__title muted">No track loaded</div>
           <div class="music__controls">
