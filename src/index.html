@@ -86,12 +86,18 @@
       <!-- Notifications / WhatsApp -->
       <div class="glass panel notifs">
         <div class="panel__head">
-          <span>Notifications</span>
+          <span>WhatsApp</span>
           <span id="notif-count" class="badge">0</span>
         </div>
-        <ul id="notif-list" class="notif__list">
-          <li class="muted small">Connect WhatsApp in a later step to see messages here.</li>
-        </ul>
+        <div id="wa-connect" class="wa-connect">
+          <button id="btn-wa" class="wa-btn">Connect WhatsApp</button>
+          <div class="muted small">Links your account via WhatsApp Web (QR scan).</div>
+        </div>
+        <div id="wa-qr" class="wa-qr hidden">
+          <img id="wa-qr-img" alt="Scan to link" />
+          <div class="muted small">WhatsApp → Linked Devices → Link a device, then scan.</div>
+        </div>
+        <ul id="notif-list" class="notif__list"></ul>
       </div>
 
       <!-- Music -->

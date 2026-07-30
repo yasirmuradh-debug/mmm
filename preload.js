@@ -40,4 +40,12 @@ contextBridge.exposeInMainWorld('jarvis', {
 
   // Realistic voice (ElevenLabs); returns base64 MP3 or a fallback signal
   tts: (text) => ipcRenderer.invoke('voice:tts', { text }),
+
+  // WhatsApp
+  whatsappStatus: () => ipcRenderer.invoke('whatsapp:status'),
+  whatsappConnect: () => ipcRenderer.invoke('whatsapp:connect'),
+  whatsappUnread: () => ipcRenderer.invoke('whatsapp:unread'),
+  whatsappLogout: () => ipcRenderer.invoke('whatsapp:logout'),
+  // Subscribe to live WhatsApp events (qr / ready / message / disconnected)
+  onWhatsApp: (cb) => ipcRenderer.on('whatsapp:event', (_e, payload) => cb(payload)),
 });

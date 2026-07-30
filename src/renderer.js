@@ -13,6 +13,7 @@ let orb;
 let recognizer;
 let speaking = false;
 let conversation = []; // {role, content} for Claude
+let waUnread = { total: 0, chats: [] }; // WhatsApp unread summary
 
 // ── Boot ────────────────────────────────────────────────────────────────────
 init();
@@ -25,6 +26,7 @@ async function init() {
   wireChat();
   wireTasks();
   wireMusic();
+  wireWhatsApp();
 
   await loadWeather();
   await loadTasks();
@@ -162,12 +164,16 @@ function buildSystemPrompt(tasks, memory) {
   const now = new Date();
   const taskLines = tasks.map((t) => `- ${t.text}${t.due ? ' (due ' + t.due + ')' : ''}${t.done ? ' [done]' : ''}`).join('\n') || '(none)';
   const memLines = memory.slice(-30).map((m) => `- ${m.text}`).join('\n') || '(none)';
+  const waLines = waUnread.total
+    ? waUnread.chats.map((c) => `- ${c.name}: ${c.count} unread`).join('\n')
+    : '(no unread messages)';
   return [
     'You are Jarvis, a warm, witty, concise desktop assistant. Keep spoken replies to 1-3 sentences.',
     `Today is ${now.toDateString()}, local time ${now.toLocaleTimeString()}.`,
     'The user can add tasks and you should help track plans and remind them.',
     '\nCurrent tasks:\n' + taskLines,
     '\nThings the user told you to remember:\n' + memLines,
+    `\nUnread WhatsApp messages (total ${waUnread.total}):\n` + waLines,
   ].join('\n');
 }
 
@@ -302,6 +308,81 @@ function playTrack(i) {
   renderTracks();
 }
 
+// ── WhatsApp ──────────────────────────────────────────────────────────────────
+let lastAnnounce = 0;
+function wireWhatsApp() {
+  const btn = $('btn-wa');
+  btn.onclick = async () => {
+    btn.disabled = true;
+    btn.textContent = 'Connecting…';
+    const res = await J.whatsappConnect();
+    if (!res.ok) {
+      btn.disabled = false;
+      btn.textContent = 'Connect WhatsApp';
+      addNotif(res.error === 'not-installed'
+        ? 'WhatsApp needs its packages. In the project run:  npm install whatsapp-web.js qrcode'
+        : 'Could not start WhatsApp.');
+    }
+  };
+
+  J.onWhatsApp((evt) => {
+    if (evt.type === 'qr') {
+      $('wa-connect').classList.add('hidden');
+      $('wa-qr').classList.remove('hidden');
+      if (evt.dataUrl) $('wa-qr-img').src = evt.dataUrl;
+      setStatus('Scan the QR with WhatsApp to link.', true);
+    } else if (evt.type === 'ready') {
+      $('wa-qr').classList.add('hidden');
+      $('wa-connect').classList.add('hidden');
+      addNotif('WhatsApp connected.');
+      setStatus('WhatsApp linked.');
+      refreshWaUnread();
+    } else if (evt.type === 'message') {
+      onWhatsAppMessage(evt.msg);
+    } else if (evt.type === 'disconnected') {
+      $('wa-connect').classList.remove('hidden');
+      $('wa-qr').classList.add('hidden');
+      btn.disabled = false;
+      btn.textContent = 'Connect WhatsApp';
+      addNotif('WhatsApp disconnected.');
+    }
+  });
+}
+
+function onWhatsAppMessage(msg) {
+  const label = msg.isGroup
+    ? `<span class="grp">${escapeHtml(msg.chatName || 'Group')}</span> · ${escapeHtml(msg.from)}`
+    : `<span class="from">${escapeHtml(msg.from)}</span>`;
+  const li = document.createElement('li');
+  li.innerHTML = `${label}: ${escapeHtml(truncate(msg.body, 60))}`;
+  const list = $('notif-list');
+  list.insertBefore(li, list.firstChild);
+  while (list.children.length > 20) list.removeChild(list.lastChild);
+
+  J.notify('WhatsApp · ' + msg.from, msg.body);
+  refreshWaUnread();
+
+  // Speak a short announcement, throttled so bursts don't spam you.
+  const now = Date.now();
+  if (now - lastAnnounce > 12000 && !speaking) {
+    lastAnnounce = now;
+    jarvisSpeak(`New message from ${msg.from}.`);
+  }
+}
+
+async function refreshWaUnread() {
+  waUnread = await J.whatsappUnread();
+  $('notif-count').textContent = waUnread.total;
+}
+
+function addNotif(text) {
+  const li = document.createElement('li');
+  li.className = 'muted small';
+  li.textContent = text;
+  const list = $('notif-list');
+  list.insertBefore(li, list.firstChild);
+}
+
 // ── Settings modal ────────────────────────────────────────────────────────────
 function wireSettings() {
   const modal = $('settings-modal');
@@ -335,4 +416,8 @@ function wireSettings() {
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) =>
     ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+function truncate(s, n) {
+  s = String(s);
+  return s.length > n ? s.slice(0, n - 1) + '…' : s;
 }

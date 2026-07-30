@@ -7,6 +7,7 @@ const { app, BrowserWindow, ipcMain, Notification, dialog, shell } = require('el
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const whatsapp = require('./whatsapp');
 
 // electron-store gives us a tiny JSON database on disk for tasks, memory & settings.
 let Store;
@@ -238,3 +239,21 @@ ipcMain.handle('voice:tts', async (_e, { text }) => {
     return { ok: false, reason: 'network', message: err.message };
   }
 });
+
+// ── WhatsApp ────────────────────────────────────────────────────────────────
+const sendToUI = (payload) => mainWindow && mainWindow.webContents.send('whatsapp:event', payload);
+
+ipcMain.handle('whatsapp:connect', async () => {
+  if (!whatsapp.available()) return { ok: false, error: 'not-installed' };
+  return whatsapp.init({
+    dataPath: path.join(app.getPath('userData'), 'wwebjs_auth'),
+    onQr: (dataUrl) => sendToUI({ type: 'qr', dataUrl }),
+    onReady: () => sendToUI({ type: 'ready' }),
+    onDisconnected: (reason) => sendToUI({ type: 'disconnected', reason }),
+    onMessage: (msg) => sendToUI({ type: 'message', msg }),
+  });
+});
+
+ipcMain.handle('whatsapp:unread', () => whatsapp.unreadSummary());
+ipcMain.handle('whatsapp:status', () => ({ available: whatsapp.available(), ready: whatsapp.isReady() }));
+ipcMain.handle('whatsapp:logout', () => whatsapp.logout());

@@ -36,7 +36,7 @@ bundler, beginner-friendly.
 | Tasks & reminders + OS notifications | ✅ Working | Say/type "…tomorrow" to set a due date |
 | Weather panel (current + 6-day) | ✅ Working | Free, no API key (Open-Meteo) |
 | Offline music player | ✅ Working | Point it at your music folder |
-| Notifications / WhatsApp panel | 🧩 Placeholder | UI is ready; wiring in the roadmap below |
+| WhatsApp notifications | ✅ Working | Link via QR; new messages + unread counts, Jarvis announces them |
 | File access | ✅ Working (API) | Main process can browse/open any folder |
 
 ---
@@ -117,14 +117,19 @@ offline wake word use **Porcupine** (`@picovoice/porcupine-node`) or
 speech-to-text. This is where your **Python** install can help — Whisper runs
 great in Python; Electron can talk to a small local Python script.
 
-### C. WhatsApp notifications
-Two options:
-- **Easiest:** use **whatsapp-web.js** (Node). It logs into WhatsApp Web via a
-  QR code and emits an event on every message. In `main.js`, on each message,
-  send the sender + unread count to the UI's notifications panel and call
-  `J.notify(...)`. Jarvis can then say "You have 3 unread messages, 2 from Mom."
-- Add it as a new module `main.js` → `whatsapp.js` and push events to the
-  renderer with `mainWindow.webContents.send('whatsapp:message', …)`.
+### C. WhatsApp notifications — ✅ done
+Click **Connect WhatsApp** in the panel, scan the QR (WhatsApp → Linked
+Devices → Link a device), and you're linked — the session is remembered so you
+won't scan again. New messages appear in the panel with sender + preview, the
+badge shows total unread, you get an OS notification, and Jarvis speaks a short
+"New message from …" (throttled). Ask **"Jarvis, any messages?"** and it reads
+your unread counts (they're fed into its context). Implemented in `whatsapp.js`
+(whatsapp-web.js client), `main.js` (`whatsapp:*` handlers) and `src/renderer.js`.
+
+> The WhatsApp packages (`whatsapp-web.js`, `qrcode`) are **optional** and large
+> (they pull in a headless browser). `npm install` grabs them automatically; if
+> that step fails, the rest of Jarvis still runs and the panel will tell you to
+> run `npm install whatsapp-web.js qrcode` when you click Connect.
 
 ### D. YouTube / online music
 Add a search box that uses the YouTube Data API (or `ytdl-core` to stream), and
