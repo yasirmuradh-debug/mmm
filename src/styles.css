@@ -205,6 +205,8 @@ body {
 .modal.hidden { display: none; }
 .modal__card { width: 460px; max-width: 92vw; padding: 22px; }
 .modal__card label { display: block; font-size: 13px; margin: 14px 0 6px; }
+.modal__card label.check { display: flex; align-items: center; gap: 8px; }
+.modal__card label.check input { width: auto; }
 .modal__card input { width: 100%; }
 .modal .row { display: flex; gap: 12px; }
 .modal .row > div { flex: 1; }

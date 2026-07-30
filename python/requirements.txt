@@ -1,0 +1,4 @@
+# Jarvis offline speech-to-text (optional). Install once with:
+#   pip install -r python/requirements.txt
+faster-whisper==1.0.3
+flask==3.0.3

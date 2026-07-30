@@ -151,6 +151,13 @@
       <label>Wake word</label>
       <input id="set-wake" placeholder="jarvis" />
 
+      <label class="check">
+        <input type="checkbox" id="set-offline" />
+        Offline speech (Whisper) <span class="muted small">— needs Python + `pip install -r python/requirements.txt`</span>
+      </label>
+      <label>Python command <span class="muted small">(only if auto-detect fails, e.g. "python" or a full path)</span></label>
+      <input id="set-python" placeholder="python3" />
+
       <button id="settings-save" class="save-btn">Save</button>
     </div>
   </div>

@@ -81,6 +81,9 @@ ipcMain.handle('settings:get', () => db.get('settings', {
   voiceName: '',
   voiceId: '21m00Tcm4TlvDq8ikWAM', // ElevenLabs "Rachel" — a sensible default
   musicFolder: '',
+  offlineSpeech: false,           // use the local Whisper sidecar for STT
+  whisperModel: 'base.en',        // tiny.en / base.en / small.en …
+  pythonCmd: '',                  // override python command if auto-detect fails
 }));
 ipcMain.handle('settings:set', (_e, next) => {
   const merged = { ...db.get('settings', {}), ...next };
@@ -188,6 +191,66 @@ async function ytSearch(query) {
   }
 }
 ipcMain.handle('youtube:search', (_e, query) => ytSearch(query));
+
+// ── Offline speech-to-text (optional Python Whisper sidecar) ────────────────
+const WHISPER_PORT = 8756;
+let whisperProc = null;
+
+function startWhisper() {
+  if (whisperProc) return;
+  const settings = db.get('settings', {});
+  const py = settings.pythonCmd || (process.platform === 'win32' ? 'python' : 'python3');
+  const script = path.join(__dirname, 'python', 'whisper_server.py');
+  try {
+    whisperProc = spawn(py, [script], {
+      env: {
+        ...process.env,
+        JARVIS_WHISPER_PORT: String(WHISPER_PORT),
+        JARVIS_WHISPER_MODEL: settings.whisperModel || 'base.en',
+      },
+    });
+  } catch (err) {
+    console.error('Could not start Whisper:', err.message);
+    return;
+  }
+  whisperProc.stdout.on('data', (d) => console.log('[whisper]', String(d).trim()));
+  whisperProc.stderr.on('data', (d) => console.log('[whisper]', String(d).trim()));
+  whisperProc.on('exit', () => { whisperProc = null; });
+}
+
+// Start the sidecar (if needed) and wait until it answers /health.
+async function ensureWhisper() {
+  startWhisper();
+  if (!whisperProc) return false;
+  for (let i = 0; i < 160; i++) { // up to ~80s: first run downloads the model
+    try {
+      const r = await fetch(`http://127.0.0.1:${WHISPER_PORT}/health`);
+      if (r.ok) return true;
+    } catch (_) { /* not up yet */ }
+    await new Promise((r) => setTimeout(r, 500));
+  }
+  return false;
+}
+
+ipcMain.handle('stt:enabled', () => !!db.get('settings', {}).offlineSpeech);
+
+ipcMain.handle('stt:transcribe', async (_e, buffer) => {
+  const ok = await ensureWhisper();
+  if (!ok) return { ok: false, error: 'whisper-unavailable' };
+  try {
+    const r = await fetch(`http://127.0.0.1:${WHISPER_PORT}/transcribe`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/octet-stream' },
+      body: Buffer.from(buffer),
+    });
+    const data = await r.json();
+    return { ok: true, text: (data.text || '').trim() };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+app.on('before-quit', () => { if (whisperProc) whisperProc.kill(); });
 
 // ── Computer-control tools the assistant can use ────────────────────────────
 // Each is a small, safe capability. Nothing here deletes files or runs raw

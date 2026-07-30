@@ -53,4 +53,8 @@ contextBridge.exposeInMainWorld('jarvis', {
   ytSearch: (query) => ipcRenderer.invoke('youtube:search', query),
   // Jarvis asked to play something by voice
   onYtPlay: (cb) => ipcRenderer.on('yt:play', (_e, data) => cb(data)),
+
+  // Offline speech-to-text (Whisper)
+  sttEnabled: () => ipcRenderer.invoke('stt:enabled'),
+  transcribe: (buffer) => ipcRenderer.invoke('stt:transcribe', buffer),
 });

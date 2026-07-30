@@ -34,6 +34,52 @@ export async function createMicMeter(onLevel) {
   }
 }
 
+// ── Record one spoken utterance (for offline Whisper) ───────────────────────
+// Records from the mic and stops automatically after a pause (or maxMs). Calls
+// onLevel so the orb reacts, and resolves with the audio as an ArrayBuffer.
+export async function recordUtterance({ maxMs = 7000, silenceMs = 1200, onLevel } = {}) {
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const rec = new MediaRecorder(stream);
+  const chunks = [];
+  rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+
+  const ctx = new AudioContext();
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 512;
+  ctx.createMediaStreamSource(stream).connect(analyser);
+  const data = new Uint8Array(analyser.frequencyBinCount);
+
+  return new Promise((resolve) => {
+    const start = Date.now();
+    let lastLoud = start;
+    rec.start();
+
+    const check = () => {
+      analyser.getByteFrequencyData(data);
+      let sum = 0;
+      for (let i = 0; i < data.length; i++) sum += data[i];
+      const level = sum / data.length;
+      onLevel && onLevel(Math.min(1, level / 90));
+      if (level > 12) lastLoud = Date.now();
+      const now = Date.now();
+      // stop on a long enough pause after some speech, or at the hard cap
+      if (now - start > maxMs || (now - start > 900 && now - lastLoud > silenceMs)) {
+        if (rec.state !== 'inactive') rec.stop();
+      } else {
+        requestAnimationFrame(check);
+      }
+    };
+
+    rec.onstop = async () => {
+      stream.getTracks().forEach((t) => t.stop());
+      ctx.close();
+      const blob = new Blob(chunks, { type: rec.mimeType || 'audio/webm' });
+      resolve(await blob.arrayBuffer());
+    };
+    requestAnimationFrame(check);
+  });
+}
+
 // ── Speech recognition with wake word ───────────────────────────────────────
 // Emits:
 //   onWake()              — the wake word was heard

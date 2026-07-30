@@ -29,7 +29,7 @@ bundler, beginner-friendly.
 |---|---|---|
 | Glassmorphism dashboard UI | ✅ Working | Matches the reference design |
 | 3D particle orb that reacts to your voice | ✅ Working | Three.js; pulses when you talk & when Jarvis speaks |
-| Wake word ("Jarvis…") + voice commands | ✅ Working | Uses the built-in browser speech engine |
+| Wake word ("Jarvis…") + voice commands | ✅ Working | Built-in engine, or **offline Whisper** (Python) for the mic button |
 | Jarvis speaks back (text-to-speech) | ✅ Working | Built-in voice, or a **realistic ElevenLabs voice** with a key |
 | AI brain (chat, understands your plans) | ✅ Working* | *Needs a free Claude API key — see step 3 |
 | Memory ("remind me what I said yesterday") | ✅ Working | Stored on disk, fed back to the AI |
@@ -112,12 +112,28 @@ waveform. Implemented in `main.js` (`voice:tts` handler), `src/voice.js`
 (`playVoiceClip`) and `src/renderer.js` (`jarvisSpeak`), with automatic
 fallback to the built-in voice when no key is set.
 
-### B. Better wake word & offline speech
-The browser speech engine needs internet and can be flaky. For a rock-solid,
-offline wake word use **Porcupine** (`@picovoice/porcupine-node`) or
-**openWakeWord**, and **whisper.cpp** / `nodejs-whisper` for offline
-speech-to-text. This is where your **Python** install can help — Whisper runs
-great in Python; Electron can talk to a small local Python script.
+### B. Offline speech (Whisper) — ✅ done (optional)
+Uses your **Python** install for private, no-internet speech-to-text. One-time
+setup:
+
+```bash
+pip install -r python/requirements.txt
+```
+
+Then in Jarvis: ⚙ Settings → tick **Offline speech (Whisper)** → Save. Now the
+🎙 mic button records what you say and transcribes it locally with
+`faster-whisper` (default model `base.en`; the first use downloads it). If
+Python isn't found, type your Python command (e.g. `python` or a full path) in
+the Python field in Settings.
+
+How it works: `python/whisper_server.py` is a tiny local server that Jarvis
+starts automatically; `main.js` sends it audio clips and gets text back;
+`src/voice.js` (`recordUtterance`) does the recording. It's fully optional — with
+the toggle off, Jarvis uses the built-in browser voice and no Python is needed.
+
+Still on the wish-list for later: a fully offline **wake word** (the "Jarvis"
+trigger still uses the browser engine). Add **Porcupine**
+(`@picovoice/porcupine-node`) or **openWakeWord** for that.
 
 ### C. WhatsApp notifications — ✅ done
 Click **Connect WhatsApp** in the panel, scan the QR (WhatsApp → Linked

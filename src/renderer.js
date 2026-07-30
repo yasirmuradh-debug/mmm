@@ -3,7 +3,7 @@
 // music and chat together. Talks to Node/OS only through window.jarvis (preload).
 // ─────────────────────────────────────────────────────────────────────────────
 import { createOrb } from './orb.js';
-import { createMicMeter, createRecognizer, speak, playVoiceClip } from './voice.js';
+import { createMicMeter, createRecognizer, speak, playVoiceClip, recordUtterance } from './voice.js';
 
 const $ = (id) => document.getElementById(id);
 const J = window.jarvis;
@@ -89,14 +89,35 @@ function startVoice() {
     setStatus('Voice not available in this build — type to chat.');
   }
 
-  // Push-to-talk mic button
-  $('btn-mic').onclick = () => {
+  // Push-to-talk mic button — offline Whisper if enabled, else browser engine.
+  $('btn-mic').onclick = async () => {
+    if (settings.offlineSpeech) return micWhisper();
     $('btn-mic').classList.add('listening');
     orb.setState('listening');
     setStatus('Listening…', true);
     recognizer.listenOnce();
     setTimeout(() => $('btn-mic').classList.remove('listening'), 4000);
   };
+}
+
+// Record a clip and transcribe it locally with Whisper.
+async function micWhisper() {
+  const btn = $('btn-mic');
+  btn.classList.add('listening');
+  orb.setState('listening');
+  setStatus('Listening…', true);
+  const buf = await recordUtterance({ onLevel: (l) => { if (!speaking) orb.setLevel(l); } });
+  btn.classList.remove('listening');
+  orb.setState('idle'); orb.setLevel(0);
+  setStatus('Transcribing…', true);
+  const res = await J.transcribe(buf);
+  if (res.ok && res.text) {
+    handleUserInput(res.text);
+  } else if (res.error === 'whisper-unavailable') {
+    setStatus('Whisper isn\'t running — check the Python setup (see README).');
+  } else {
+    setStatus('Didn\'t catch that — try again.');
+  }
 }
 
 // Fake a speaking envelope so the orb pulses while Jarvis talks.
@@ -491,6 +512,8 @@ function wireSettings() {
     $('set-lat').value = settings.latitude ?? '';
     $('set-lon').value = settings.longitude ?? '';
     $('set-wake').value = settings.wakeWord || 'jarvis';
+    $('set-offline').checked = !!settings.offlineSpeech;
+    $('set-python').value = settings.pythonCmd || '';
     modal.classList.remove('hidden');
   };
   $('settings-close').onclick = () => modal.classList.add('hidden');
@@ -503,6 +526,8 @@ function wireSettings() {
       latitude: parseFloat($('set-lat').value) || settings.latitude,
       longitude: parseFloat($('set-lon').value) || settings.longitude,
       wakeWord: $('set-wake').value.trim() || 'jarvis',
+      offlineSpeech: $('set-offline').checked,
+      pythonCmd: $('set-python').value.trim(),
     });
     modal.classList.add('hidden');
     await loadWeather();
