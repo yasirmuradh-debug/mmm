@@ -343,7 +343,7 @@ function wireMusic() {
     setMusicTitle('Searching…', true);
     const r = await J.ytSearch(q);
     if (!r.ok) {
-      setMusicTitle(r.error === 'not-installed' ? 'Run: npm install yt-search' : 'Search failed', true);
+      setMusicTitle(r.error === 'web' ? 'YouTube search needs the desktop version' : r.error === 'not-installed' ? 'Run: npm install yt-search' : 'Search failed', true);
       return;
     }
     ytResults = r.videos; ytIndex = -1;
@@ -446,9 +446,11 @@ function wireWhatsApp() {
     if (!res.ok) {
       btn.disabled = false;
       btn.textContent = 'Connect WhatsApp';
-      addNotif(res.error === 'not-installed'
-        ? 'WhatsApp needs its packages. In the project run:  npm install whatsapp-web.js qrcode'
-        : 'Could not start WhatsApp.');
+      addNotif(res.error === 'web'
+        ? 'WhatsApp works in the local desktop version (run it on your PC with npm run web).'
+        : res.error === 'not-installed'
+          ? 'WhatsApp needs its packages. In the project run:  npm install whatsapp-web.js qrcode'
+          : 'Could not start WhatsApp.');
     }
   };
 

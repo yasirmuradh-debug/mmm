@@ -71,6 +71,32 @@ npm run web        # opens http://localhost:4321 in your browser
 > (which some Node setups block). An Electron desktop-window version is still in
 > the repo (`npm start`) if you ever want it.
 
+### Install it like an app (PWA)
+Whether you use the hosted link or `localhost`, in **Chrome/Edge** click the
+**Install** icon in the address bar (or ⋮ menu → *Install Jarvis*). You get a
+real desktop app window and icon — no browser tabs.
+
+## 2b. Hosted link (optional) — free, always-available, limited
+
+You can also publish Jarvis as a **hosted website** and install that to your
+desktop. Because a webpage is sandboxed, the hosted version does the browser
+things — **AI chat (free Google Gemini), voice, weather, tasks, the orb, YouTube
+playback** — but **cannot** touch your files, WhatsApp, local music, or open
+apps. For those, use the local version above (same app auto-detects which mode
+it's in).
+
+**Turn on the hosted link (one-time):**
+1. Make the repo **Public**: GitHub → repo **Settings → General → Danger Zone →
+   Change visibility → Public**. (Safe — no API keys live in the code; you paste
+   your key in the app at runtime, and it stays in your browser.)
+2. Enable Pages: **Settings → Pages → Build and deployment → Source =
+   “GitHub Actions”**.
+3. The included workflow deploys automatically. Your link will be:
+   **`https://<your-username>.github.io/<repo>/`**
+   (for this repo: `https://yasirmuradh-debug.github.io/mmm/`).
+4. Open it in **Chrome/Edge**, click **Install**, then ⚙ → set AI brain to
+   **Google Gemini** and paste a free key from aistudio.google.com.
+
 ---
 
 ## 3. Turn on the brain — 100% free (2 minutes)

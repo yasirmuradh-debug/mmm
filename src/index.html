@@ -3,8 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self' https://esm.sh https://www.youtube.com https://s.ytimg.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://esm.sh; media-src 'self' file: blob: data:; frame-src https://www.youtube.com https://www.youtube-nocookie.com;" />
+    content="default-src 'self'; script-src 'self' https://esm.sh https://www.youtube.com https://s.ytimg.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://esm.sh https://generativelanguage.googleapis.com https://api.groq.com https://api.anthropic.com https://api.elevenlabs.io https://api.open-meteo.com; media-src 'self' file: blob: data:; frame-src https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self'; manifest-src 'self';" />
   <title>Jarvis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#05060a" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
   <link rel="stylesheet" href="styles.css" />
   <!-- Import map lets us `import * as THREE from 'three'` with no build step. -->
   <script type="importmap">
@@ -178,5 +183,10 @@
   <!-- Browser bridge (defines window.jarvis) — must load before the renderer -->
   <script src="api.js"></script>
   <script type="module" src="renderer.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+    }
+  </script>
 </body>
 </html>
