@@ -6,10 +6,12 @@
 // everything that needs Node/OS access (files, API keys, WhatsApp, Whisper).
 // Only Node.js is required — no separate Electron binary to download.
 // ─────────────────────────────────────────────────────────────────────────────
+try { require('dotenv').config(); } catch (_) { /* dotenv optional */ }
 const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const ai = require('./ai-service');
 const { spawn, exec } = require('child_process');
 const whatsapp = require('./whatsapp');
 
@@ -27,7 +29,8 @@ const db = {
 };
 
 const DEFAULT_SETTINGS = {
-  aiProvider: 'groq',           // 'groq' | 'gemini' | 'claude'  (first two are free)
+  aiProvider: 'nvidia',         // 'nvidia' | 'groq' | 'gemini' | 'claude'
+  temperature: 0.7, maxTokens: 1024,
   groqApiKey: '', geminiApiKey: '', claudeApiKey: '',
   elevenLabsApiKey: '', city: 'Brooklyn',
   latitude: 40.65, longitude: -73.95, wakeWord: 'jarvis',
@@ -276,29 +279,23 @@ function toGeminiSchema(node) {
 }
 const GEMINI_TOOLS = [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, description: t.description, parameters: toGeminiSchema(t.input_schema) })) }];
 
-// ── Groq (free, OpenAI-compatible) ──
-async function chatGroq(apiKey, messages, system, flags) {
-  const convo = [{ role: 'system', content: system }, ...messages];
-  for (let step = 0; step < 6; step++) {
-    const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json', authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: 'llama-3.3-70b-versatile', max_tokens: 1024, messages: convo, tools: OPENAI_TOOLS, tool_choice: 'auto' }),
-    });
-    const data = await r.json();
-    if (!r.ok) return { ok: false, text: 'Groq error: ' + (data.error?.message || r.status) };
-    const msg = data.choices[0].message;
-    if (msg.tool_calls && msg.tool_calls.length) {
-      convo.push(msg);
-      for (const tc of msg.tool_calls) {
-        let args = {}; try { args = JSON.parse(tc.function.arguments || '{}'); } catch (_) {}
-        convo.push({ role: 'tool', tool_call_id: tc.id, content: await runTool(tc.function.name, args, flags) });
-      }
-      continue;
-    }
-    return { ok: true, text: (msg.content || '').trim() };
-  }
-  return { ok: true, text: 'Done.' };
+// System prompt + friendly "no key" helpers.
+const SYS = (s) => (s || 'You are Jarvis, a concise, warm, witty desktop assistant.') +
+  ' You can control the computer with the provided tools when asked to open, find, launch or note something. Use them, then reply briefly.';
+function noKeyMsg(provider) {
+  if (provider === 'nvidia') return { ok: false, text: 'NVIDIA key not found. Create a .env file next to server.js with  NVIDIA_API_KEY=your-key  (see .env.example) and restart Jarvis.' };
+  const where = provider === 'groq' ? 'console.groq.com (free)' : provider === 'gemini' ? 'aistudio.google.com (free)' : 'console.anthropic.com';
+  return { ok: false, text: `I need a key first. Open Settings (gear), get one at ${where}, paste it, and Save.` };
+}
+
+// NVIDIA + Groq (OpenAI-compatible) go through the AI service module.
+function chatOpenAI(provider, apiKey, messages, system, flags, settings) {
+  const cfg = ai.PROVIDERS[provider];
+  return ai.chatOpenAICompatible({
+    url: cfg.url, model: cfg.model, apiKey, messages, system,
+    openaiTools: OPENAI_TOOLS, runTool,
+    temperature: settings.temperature, maxTokens: settings.maxTokens, flags,
+  });
 }
 
 // ── Google Gemini (free) ──
@@ -350,25 +347,59 @@ async function chatClaude(apiKey, messages, system, flags) {
 
 app.post('/api/chat', async (req, res) => {
   const settings = db.get('settings', {});
-  const provider = settings.aiProvider || 'groq';
+  const provider = settings.aiProvider || 'nvidia';
   const flags = { refresh: false };
-  const system = (req.body.system || 'You are Jarvis, a concise, warm, witty desktop assistant.') +
-    ' You can control the computer with the provided tools when asked to open, find, launch or note something. Use them, then reply briefly.';
-  const noKey = (where) => res.json({ ok: false, text: `I need a free API key first. Open Settings (gear icon), get one at ${where}, paste it, and Save.` });
+  const system = SYS(req.body.system);
   try {
+    const key = ai.keyForProvider(provider, settings);
+    if (!key) return res.json(noKeyMsg(provider));
     let result;
-    if (provider === 'gemini') {
-      if (!settings.geminiApiKey) return noKey('aistudio.google.com (free, no billing)');
-      result = await chatGemini(settings.geminiApiKey, req.body.messages, system, flags);
-    } else if (provider === 'claude') {
-      if (!settings.claudeApiKey) return noKey('console.anthropic.com');
-      result = await chatClaude(settings.claudeApiKey, req.body.messages, system, flags);
-    } else {
-      if (!settings.groqApiKey) return noKey('console.groq.com (free, no billing)');
-      result = await chatGroq(settings.groqApiKey, req.body.messages, system, flags);
-    }
+    if (provider === 'gemini') result = await chatGemini(key, req.body.messages, system, flags);
+    else if (provider === 'claude') result = await chatClaude(key, req.body.messages, system, flags);
+    else result = await chatOpenAI(provider, key, req.body.messages, system, flags, settings); // nvidia | groq
     res.json({ ...result, refresh: flags.refresh });
   } catch (err) { res.json({ ok: false, text: 'Could not reach the AI: ' + err.message }); }
+});
+
+// Streaming chat (used by the test page) — low-latency token-by-token via SSE.
+app.post('/api/chat/stream', async (req, res) => {
+  const settings = db.get('settings', {});
+  const provider = settings.aiProvider || 'nvidia';
+  const system = SYS(req.body.system);
+  res.set({ 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
+  res.flushHeaders();
+  const send = (o) => res.write(`data: ${JSON.stringify(o)}\n\n`);
+  const t0 = Date.now();
+  try {
+    const cfg = ai.PROVIDERS[provider] || {};
+    const key = ai.keyForProvider(provider, settings);
+    if (!key) { send({ type: 'error', text: noKeyMsg(provider).text }); return res.end(); }
+    send({ type: 'meta', provider, model: cfg.model || provider });
+    if (cfg.openai) {
+      const out = await ai.streamOpenAICompatible(
+        { url: cfg.url, model: cfg.model, apiKey: key, messages: req.body.messages, system, temperature: settings.temperature, maxTokens: settings.maxTokens },
+        (chunk) => send({ type: 'delta', text: chunk }),
+      );
+      if (!out.ok) send({ type: 'error', text: out.error });
+      else send({ type: 'done', usage: out.usage || null, latencyMs: Date.now() - t0 });
+    } else {
+      // Gemini/Claude: no incremental stream here — compute then emit once.
+      const result = provider === 'gemini'
+        ? await chatGemini(key, req.body.messages, system, { refresh: false })
+        : await chatClaude(key, req.body.messages, system, { refresh: false });
+      if (result.ok) { send({ type: 'delta', text: result.text }); send({ type: 'done', latencyMs: Date.now() - t0 }); }
+      else send({ type: 'error', text: result.text });
+    }
+  } catch (e) { send({ type: 'error', text: e.message }); }
+  res.end();
+});
+
+// Status for the test page: which model, and whether its key is configured.
+app.get('/api/status', (_q, res) => {
+  const s = db.get('settings', {});
+  const provider = s.aiProvider || 'nvidia';
+  const cfg = ai.PROVIDERS[provider] || {};
+  res.json({ ok: true, provider, model: cfg.model || provider, label: cfg.label || provider, hasKey: !!ai.keyForProvider(provider, s), temperature: s.temperature ?? 0.7, maxTokens: s.maxTokens ?? 1024 });
 });
 
 // ── Serve the UI ────────────────────────────────────────────────────────────

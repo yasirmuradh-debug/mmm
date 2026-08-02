@@ -137,12 +137,14 @@
         <span>Settings</span>
         <button id="settings-close" class="icon-btn">✕</button>
       </div>
-      <label>AI brain <span class="muted small">(pick a free one — powers Jarvis's thinking)</span></label>
+      <label>AI brain <span class="muted small">(powers Jarvis's thinking)</span></label>
       <select id="set-provider">
-        <option value="groq">Groq — free &amp; fast (recommended)</option>
+        <option value="nvidia">NVIDIA GPT-OSS-120B — server key (.env)</option>
+        <option value="groq">Groq — free &amp; fast</option>
         <option value="gemini">Google Gemini — free</option>
         <option value="claude">Anthropic Claude — paid</option>
       </select>
+      <div class="muted small" style="margin-top:6px">NVIDIA reads its key from the server's <code>.env</code> file — nothing to paste here.</div>
 
       <label>Groq API key <span class="muted small">(FREE, no card — console.groq.com → API Keys)</span></label>
       <input id="set-groq" type="password" placeholder="gsk_…" />

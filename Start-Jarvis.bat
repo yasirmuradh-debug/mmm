@@ -23,9 +23,9 @@ if errorlevel 1 (
   exit /b 1
 )
 
-REM --- Install dependencies the first time (no Electron needed anymore) ---
-if not exist "node_modules\express" (
-  echo   Installing dependencies (first time only - a couple of minutes)...
+REM --- Install dependencies when anything's missing (e.g. after an update) ---
+if not exist "node_modules\dotenv" (
+  echo   Installing dependencies (first time or after an update)...
   echo(
   call npm install
   echo(

@@ -6,3 +6,7 @@ out/
 # Local secrets — your API keys live here, never commit them
 .env
 config/settings.local.json
+# Runtime data (may contain user-entered keys / sessions) — keep local only
+jarvis-data.json
+wwebjs_auth/
+.wwebjs_cache/

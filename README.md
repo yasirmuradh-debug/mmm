@@ -31,7 +31,8 @@ bundler, beginner-friendly.
 | 3D particle orb that reacts to your voice | ✅ Working | Three.js; pulses when you talk & when Jarvis speaks |
 | Wake word ("Jarvis…") + voice commands | ✅ Working | Built-in engine, or **offline Whisper** (Python) for the mic button |
 | Jarvis speaks back (text-to-speech) | ✅ Working | Built-in voice, or a **realistic ElevenLabs voice** with a key |
-| AI brain (chat, understands your plans) | ✅ Working* | *Needs a free key (Groq or Gemini) — see step 3 |
+| AI brain (chat, understands your plans) | ✅ Working* | NVIDIA GPT-OSS-120B (env key) by default; free Groq/Gemini optional — step 3 |
+| Streaming responses + API test console | ✅ Working | `/test.html` — streaming, latency, tokens, status; no key in the page |
 | Memory ("remind me what I said yesterday") | ✅ Working | Stored on disk, fed back to the AI |
 | Tasks & reminders + OS notifications | ✅ Working | Say/type "…tomorrow" to set a due date |
 | Weather panel (current + 6-day) | ✅ Working | Free, no API key (Open-Meteo) |
@@ -99,11 +100,29 @@ it's in).
 
 ---
 
-## 3. Turn on the brain — 100% free (2 minutes)
+## 3. Turn on the brain
 
-The orb, voice, weather, tasks and music all work with **zero** setup. To let
-Jarvis actually *think* and hold a conversation, give it a **free** API key —
-no credit card, no billing. Pick either one:
+The default model is **NVIDIA-hosted OpenAI GPT-OSS-120B**. Its key is read from
+a local **`.env`** file and stays on the server — it is never put in the HTML,
+JS, or the repo.
+
+**NVIDIA (default) — set the key once:**
+1. Copy `.env.example` to a new file named **`.env`** (same folder as
+   `server.js`).
+2. Put your key in it:  `NVIDIA_API_KEY=nvapi-...`
+3. Start Jarvis (`Start-Jarvis.bat` / `npm run web`). That's it — the AI brain
+   is on. (Streaming, retries and graceful error handling are built in.)
+
+There's also a built-in **API test console** at
+**http://localhost:4321/test.html** — a clean chat UI with streaming, latency,
+token usage, model/connection status, mic input and text-to-speech. It talks
+only to the backend and contains **no API key**.
+
+### Prefer a free key instead? (Groq / Gemini)
+
+Everything works with **zero** setup except the brain. If you'd rather not use
+NVIDIA, pick a **free** key (no card, no billing) and select it in ⚙ Settings →
+**AI brain**:
 
 **Option A — Groq (recommended, free & fast)**
 1. Go to **console.groq.com** → sign in (Google/GitHub) → **API Keys** →

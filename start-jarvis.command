@@ -15,8 +15,8 @@ if ! command -v node >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ ! -d "node_modules/express" ]; then
-  echo "  Installing dependencies (first time only - a couple of minutes)..."
+if [ ! -d "node_modules/dotenv" ]; then
+  echo "  Installing dependencies (first time or after an update)..."
   npm install || { echo "  [X] Install failed."; read -n 1 -s -r -p "  Press any key..."; exit 1; }
 fi
 
