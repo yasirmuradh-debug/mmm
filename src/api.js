@@ -47,6 +47,45 @@
       scanMusic: (folder) => getJSON('/api/music/scan?folder=' + encodeURIComponent(folder)),
       musicUrl: (p) => '/api/music/file?path=' + encodeURIComponent(p),
       chat: (payload) => postJSON('/api/chat', payload),
+      chatStream: async (payload, onDelta, onMeta, opts = {}) => {
+        const res = await fetch('/api/chat/stream', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(payload),
+          signal: opts.signal,
+        });
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          return { ok: false, error: err?.error || err?.text || 'Chat stream failed' };
+        }
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let done = false;
+        while (!done) {
+          const { value, done: readDone } = await reader.read();
+          if (readDone) { done = true; break; }
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed.startsWith('data:')) continue;
+            const payloadLine = trimmed.slice(5).trim();
+            if (!payloadLine || payloadLine === '[DONE]') continue;
+            let chunk;
+            try { chunk = JSON.parse(payloadLine); } catch (_) { continue; }
+            if (chunk.type === 'meta') {
+              onMeta && onMeta(chunk);
+            } else if (chunk.type === 'delta') {
+              onDelta && onDelta(chunk.text || '');
+            } else if (chunk.type === 'error') {
+              return { ok: false, error: chunk.text || 'Chat error' };
+            }
+          }
+        }
+        return { ok: true };
+      },
       tts: (text) => postJSON('/api/tts', { text }),
       whatsappStatus: () => getJSON('/api/whatsapp/status'),
       whatsappConnect: () => postJSON('/api/whatsapp/connect'),
@@ -57,6 +96,9 @@
       onYtPlay: (cb) => ytCbs.push(cb),
       sttEnabled: () => getJSON('/api/stt/enabled').then((r) => r.enabled),
       transcribe: (buf) => fetch('/api/stt/transcribe', { method: 'POST', headers: { 'content-type': 'application/octet-stream' }, body: buf }).then((r) => r.json()),
+      validateNvidiaKey: (key) => postJSON('/api/nvidia/validate', { apiKey: key }),
+      fetchNvidiaModels: () => getJSON('/api/nvidia/models'),
+      getStatus: () => getJSON('/api/status'),
     };
   }
 
@@ -142,6 +184,31 @@
       onYtPlay: () => {},
       sttEnabled: async () => false,
       transcribe: async () => ({ ok: false, error: 'web' }),
+      validateNvidiaKey: async () => ({ ok: false, error: 'web' }),
+      fetchNvidiaModels: async () => ({ ok: false, error: 'web' }),
+      getStatus: async () => {
+        const s = getSettings();
+        const provider = s.aiProvider || 'gemini';
+        const apiKey = provider === 'gemini'
+          ? s.geminiApiKey
+          : provider === 'groq'
+            ? s.groqApiKey
+            : provider === 'claude'
+              ? s.claudeApiKey
+              : s.nvidiaApiKey;
+        return {
+          ok: true,
+          provider,
+          label: provider === 'gemini' ? 'Google Gemini' : provider === 'groq' ? 'Groq' : provider === 'claude' ? 'Anthropic Claude' : 'NVIDIA',
+          status: 'standalone',
+          hasKey: !!apiKey,
+          lastSuccessful: null,
+          lastLatencyMs: null,
+          error: provider === 'gemini'
+            ? (s.geminiApiKey ? null : 'Google Gemini key not set')
+            : 'Only Google Gemini is fully supported in the hosted version',
+        };
+      },
     };
   }
 

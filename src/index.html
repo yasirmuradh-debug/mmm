@@ -77,7 +77,20 @@
         </div>
       </div>
 
+      <div class="chat-controls glass">
+        <div class="chat-controls__left">
+          <input id="chat-search" class="chat-search" placeholder="Search conversation…" autocomplete="off" />
+          <button id="chat-search-clear" type="button" class="icon-btn" title="Clear search">✕</button>
+        </div>
+        <div class="chat-controls__actions">
+          <button id="btn-regenerate" type="button" class="mini-btn">Regenerate</button>
+          <button id="btn-stop" type="button" class="mini-btn" disabled>Stop</button>
+          <button id="btn-export" type="button" class="mini-btn">Export</button>
+        </div>
+      </div>
+
       <div id="transcript" class="transcript"></div>
+      <div id="chat-status" class="chat-status muted">Ready.</div>
 
       <form id="chat-form" class="chat-bar glass">
         <button type="button" id="btn-mic" class="mic-btn" title="Push to talk">🎙</button>
@@ -126,69 +139,80 @@
         </div>
         <ul id="music-list" class="music__list"></ul>
         <audio id="audio" preload="none"></audio>
-      </div>
-    </section>
-  </main>
-
-  <!-- ── Settings modal ──────────────────────────────────────────────── -->
-  <div id="settings-modal" class="modal hidden">
-    <div class="glass modal__card">
-      <div class="panel__head">
-        <span>Settings</span>
-        <button id="settings-close" class="icon-btn">✕</button>
-      </div>
-      <label>AI brain <span class="muted small">(powers Jarvis's thinking)</span></label>
-      <select id="set-provider">
-        <option value="nvidia">NVIDIA GPT-OSS-120B — server key (.env)</option>
-        <option value="groq">Groq — free &amp; fast</option>
-        <option value="gemini">Google Gemini — free</option>
-        <option value="claude">Anthropic Claude — paid</option>
-      </select>
-      <div class="muted small" style="margin-top:6px">NVIDIA reads its key from the server's <code>.env</code> file — nothing to paste here.</div>
-
-      <label>Groq API key <span class="muted small">(FREE, no card — console.groq.com → API Keys)</span></label>
-      <input id="set-groq" type="password" placeholder="gsk_…" />
-
-      <label>Google Gemini API key <span class="muted small">(FREE, no card — aistudio.google.com → Get API key)</span></label>
-      <input id="set-gemini" type="password" placeholder="AIza…" />
-
-      <label>Claude API key <span class="muted small">(optional, paid — console.anthropic.com)</span></label>
-      <input id="set-claude" type="password" placeholder="sk-ant-…" />
-
-      <label>ElevenLabs API key <span class="muted small">(optional — realistic voice)</span></label>
-      <input id="set-eleven" type="password" placeholder="optional" />
-
-      <label>Voice <span class="muted small">(ElevenLabs voice ID — leave default for “Rachel”)</span></label>
-      <input id="set-voiceid" placeholder="21m00Tcm4TlvDq8ikWAM" />
-
-      <label>City name</label>
-      <input id="set-city" placeholder="Brooklyn" />
-      <div class="row">
-        <div><label>Latitude</label><input id="set-lat" placeholder="40.65" /></div>
-        <div><label>Longitude</label><input id="set-lon" placeholder="-73.95" /></div>
-      </div>
-
-      <label>Wake word</label>
-      <input id="set-wake" placeholder="jarvis" />
-
-      <label class="check">
-        <input type="checkbox" id="set-offline" />
-        Offline speech (Whisper) <span class="muted small">— needs Python + `pip install -r python/requirements.txt`</span>
-      </label>
-      <label>Python command <span class="muted small">(only if auto-detect fails, e.g. "python" or a full path)</span></label>
-      <input id="set-python" placeholder="python3" />
-
-      <button id="settings-save" class="save-btn">Save</button>
     </div>
-  </div>
+  </section>
+</main>
 
-  <!-- Browser bridge (defines window.jarvis) — must load before the renderer -->
-  <script src="api.js"></script>
-  <script type="module" src="renderer.js"></script>
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
-    }
-  </script>
+<!-- ── Settings modal ──────────────────────────────────────────────────────────────── -->
+<div id="settings-modal" class="modal hidden">
+  <div class="glass modal__card">
+    <div class="panel__head">
+      <span>Settings</span>
+      <button id="settings-close" class="icon-btn">✕</button>
+    </div>
+
+    <label>AI brain <span class="muted small">(powers Jarvis's thinking)</span></label>
+    <select id="set-provider">
+      <option value="nvidia">NVIDIA GPT-OSS-120B</option>
+      <option value="groq">Groq — free &amp; fast</option>
+      <option value="gemini">Google Gemini — free</option>
+      <option value="claude">Anthropic Claude — paid</option>
+    </select>
+
+    <div id="nvidia-settings" class="hidden">
+      <label>NVIDIA API key <span class="muted small">(stored securely in the local app)</span></label>
+      <input id="set-nvidia" type="password" placeholder="nvidia-api-key" />
+      <label>NVIDIA model</label>
+      <select id="set-nvidia-model">
+        <option value="openai/gpt-oss-120b">openai/gpt-oss-120b</option>
+      </select>
+      <button id="btn-validate-nvidia" type="button" class="mini-btn">Validate & Refresh Models</button>
+      <div id="nvidia-status" class="muted small" style="margin-top:6px">Enter your NVIDIA key to discover models.</div>
+    </div>
+
+    <label>Groq API key <span class="muted small">(FREE, no card — console.groq.com → API Keys)</span></label>
+    <input id="set-groq" type="password" placeholder="gsk_…" />
+
+    <label>Google Gemini API key <span class="muted small">(FREE, no card — aistudio.google.com → Get API key)</span></label>
+    <input id="set-gemini" type="password" placeholder="AIza…" />
+
+    <label>Claude API key <span class="muted small">(optional, paid — console.anthropic.com)</span></label>
+    <input id="set-claude" type="password" placeholder="sk-ant-…" />
+
+    <label>ElevenLabs API key <span class="muted small">(optional — realistic voice)</span></label>
+    <input id="set-eleven" type="password" placeholder="optional" />
+
+    <label>Voice <span class="muted small">(ElevenLabs voice ID — leave default for “Rachel”)</span></label>
+    <input id="set-voiceid" placeholder="21m00Tcm4TlvDq8ikWAM" />
+
+    <label>City name</label>
+    <input id="set-city" placeholder="Brooklyn" />
+    <div class="row">
+      <div><label>Latitude</label><input id="set-lat" placeholder="40.65" /></div>
+      <div><label>Longitude</label><input id="set-lon" placeholder="-73.95" /></div>
+    </div>
+
+    <label>Wake word</label>
+    <input id="set-wake" placeholder="jarvis" />
+
+    <label class="check">
+      <input type="checkbox" id="set-offline" />
+      Offline speech (Whisper) <span class="muted small">— needs Python + `pip install -r python/requirements.txt`</span>
+    </label>
+    <label>Python command <span class="muted small">(only if auto-detect fails, e.g. "python" or a full path)</span></label>
+    <input id="set-python" placeholder="python3" />
+
+    <button id="settings-save" class="save-btn">Save</button>
+  </div>
+</div>
+
+<!-- Browser bridge (defines window.jarvis) — must load before the renderer -->
+<script src="api.js"></script>
+<script type="module" src="renderer.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
 </body>
 </html>

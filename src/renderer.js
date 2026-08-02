@@ -30,6 +30,7 @@ async function init() {
 
   await loadWeather();
   await loadTasks();
+  await refreshProviderStatus();
   startVoice();
   startReminderLoop();
 
@@ -63,6 +64,30 @@ function pushTranscript(who, text) {
   t.appendChild(line);
   t.scrollTop = t.scrollHeight;
   while (t.children.length > 12) t.removeChild(t.firstChild);
+}
+
+async function refreshProviderStatus() {
+  const statusEl = $('chat-status');
+  if (typeof J.getStatus !== 'function') {
+    statusEl.textContent = 'Provider status unavailable in this mode.';
+    return;
+  }
+  try {
+    const status = await J.getStatus();
+    if (!status.ok) {
+      statusEl.textContent = 'Status check failed: ' + (status.error || 'unknown');
+      return;
+    }
+    const parts = [
+      status.label || status.provider || 'Provider',
+      status.status ? `status: ${status.status}` : null,
+      status.hasKey ? 'key set' : 'key missing',
+      status.lastLatencyMs ? `${status.lastLatencyMs}ms` : null,
+    ].filter(Boolean);
+    statusEl.textContent = parts.join(' · ') || 'Ready.';
+  } catch (err) {
+    statusEl.textContent = 'Status check failed: ' + err.message;
+  }
 }
 
 // ── Voice ─────────────────────────────────────────────────────────────────────
@@ -515,8 +540,54 @@ function addNotif(text) {
 // ── Settings modal ────────────────────────────────────────────────────────────
 function wireSettings() {
   const modal = $('settings-modal');
-  $('btn-settings').onclick = () => {
-    $('set-provider').value = settings.aiProvider || 'groq';
+  const providerSelect = $('set-provider');
+  const nvidiaPanel = $('nvidia-settings');
+  const nvidiaKeyInput = $('set-nvidia');
+  const nvidiaModelSelect = $('set-nvidia-model');
+  const nvidiaStatus = $('nvidia-status');
+  const validateBtn = $('btn-validate-nvidia');
+
+  function updateNvidiaPanel() {
+    nvidiaPanel.classList.toggle('hidden', providerSelect.value !== 'nvidia');
+  }
+
+  async function refreshNvidiaModels(selectedModel) {
+    if (!settings.nvidiaApiKey) return;
+    const res = await J.fetchNvidiaModels();
+    if (res.ok && Array.isArray(res.models)) {
+      nvidiaModelSelect.innerHTML = res.models.map((model) =>
+        `<option value="${escapeHtml(model.id)}">${escapeHtml(model.label || model.id)}</option>`
+      ).join('');
+      if (selectedModel) nvidiaModelSelect.value = selectedModel;
+      nvidiaStatus.textContent = 'NVIDIA model list refreshed.';
+    }
+  }
+
+  providerSelect.onchange = updateNvidiaPanel;
+  validateBtn.onclick = async () => {
+    const key = nvidiaKeyInput.value.trim();
+    if (!key) {
+      nvidiaStatus.textContent = 'Enter a NVIDIA API key before validating.';
+      return;
+    }
+    nvidiaStatus.textContent = 'Validating NVIDIA key…';
+    const res = await J.validateNvidiaKey(key);
+    if (res.ok) {
+      nvidiaStatus.textContent = `Valid NVIDIA key. ${res.models.length} models found.`;
+      nvidiaModelSelect.innerHTML = res.models.map((model) =>
+        `<option value="${escapeHtml(model.id)}">${escapeHtml(model.label || model.id)}</option>`
+      ).join('');
+      if (res.models.length) nvidiaModelSelect.value = res.models[0].id;
+      settings.nvidiaApiKey = key;
+      settings.nvidiaModel = nvidiaModelSelect.value;
+      refreshProviderStatus();
+    } else {
+      nvidiaStatus.textContent = 'Validation failed: ' + (res.error || 'unknown error');
+    }
+  };
+
+  $('btn-settings').onclick = async () => {
+    providerSelect.value = settings.aiProvider || 'groq';
     $('set-groq').value = settings.groqApiKey || '';
     $('set-gemini').value = settings.geminiApiKey || '';
     $('set-claude').value = settings.claudeApiKey || '';
@@ -528,16 +599,17 @@ function wireSettings() {
     $('set-wake').value = settings.wakeWord || 'jarvis';
     $('set-offline').checked = !!settings.offlineSpeech;
     $('set-python').value = settings.pythonCmd || '';
+    nvidiaKeyInput.value = '';
+    nvidiaStatus.textContent = 'Leave blank to keep the saved NVIDIA key.';
+    await refreshNvidiaModels(settings.nvidiaModel);
+    updateNvidiaPanel();
     modal.classList.remove('hidden');
   };
+
   $('settings-close').onclick = () => modal.classList.add('hidden');
   $('settings-save').onclick = async () => {
-    settings = await J.setSettings({
-      aiProvider: $('set-provider').value,
-      groqApiKey: $('set-groq').value.trim(),
-      geminiApiKey: $('set-gemini').value.trim(),
-      claudeApiKey: $('set-claude').value.trim(),
-      elevenLabsApiKey: $('set-eleven').value.trim(),
+    const next = {
+      aiProvider: providerSelect.value,
       voiceId: $('set-voiceid').value.trim() || '21m00Tcm4TlvDq8ikWAM',
       city: $('set-city').value.trim(),
       latitude: parseFloat($('set-lat').value) || settings.latitude,
@@ -545,9 +617,26 @@ function wireSettings() {
       wakeWord: $('set-wake').value.trim() || 'jarvis',
       offlineSpeech: $('set-offline').checked,
       pythonCmd: $('set-python').value.trim(),
-    });
+      nvidiaModel: nvidiaModelSelect.value,
+    };
+    const groqKey = $('set-groq').value.trim(); if (groqKey) next.groqApiKey = groqKey;
+    const geminiKey = $('set-gemini').value.trim(); if (geminiKey) next.geminiApiKey = geminiKey;
+    const claudeKey = $('set-claude').value.trim(); if (claudeKey) next.claudeApiKey = claudeKey;
+    const elevenKey = $('set-eleven').value.trim(); if (elevenKey) next.elevenLabsApiKey = elevenKey;
+    const nvidiaKey = nvidiaKeyInput.value.trim(); if (nvidiaKey) next.nvidiaApiKey = nvidiaKey;
+
+    settings = await J.setSettings(next);
     modal.classList.add('hidden');
     await loadWeather();
+    refreshProviderStatus();
+  };
+
+  $('btn-regenerate').onclick = () => setStatus('Regenerate will be available soon.');
+  $('btn-stop').onclick = () => setStatus('Stop is not implemented yet.');
+  $('btn-export').onclick = () => setStatus('Export is not available in this version.');
+  $('chat-search-clear').onclick = () => {
+    $('chat-search').value = '';
+    setStatus('Search cleared.');
   };
 }
 

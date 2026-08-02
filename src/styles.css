@@ -160,6 +160,21 @@ body {
 .transcript .u { color: var(--muted); }
 .transcript .j { color: var(--text); }
 
+.chat-controls {
+  width: 100%; max-width: 640px; display: flex; align-items: center;
+  justify-content: space-between; gap: 10px; padding: 10px 16px;
+  border-radius: 18px; background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.12);
+}
+.chat-controls__left { display: flex; align-items: center; gap: 8px; flex: 1; }
+.chat-controls__actions { display: flex; align-items: center; gap: 8px; }
+.chat-search { min-width: 240px; }
+.chat-status {
+  width: 100%; max-width: 640px; margin-top: 10px; padding: 10px 16px;
+  border-radius: 16px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--muted); font-size: 13px;
+}
+.chat-status:not(.muted) { color: var(--text); }
+
 .chat-bar {
   display: flex; align-items: center; gap: 8px; width: 100%; max-width: 640px;
   padding: 8px; border-radius: 16px;
