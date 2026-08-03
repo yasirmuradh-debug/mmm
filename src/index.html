@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' https://esm.sh https://www.youtube.com https://s.ytimg.com 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://esm.sh https://generativelanguage.googleapis.com https://api.groq.com https://api.anthropic.com https://api.elevenlabs.io https://api.open-meteo.com; media-src 'self' file: blob: data:; frame-src https://www.youtube.com https://www.youtube-nocookie.com; worker-src 'self'; manifest-src 'self';" />
+  <title>Jarvis</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#171310" />
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="icon" href="icon-192.png" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="stylesheet" href="styles.css" />
+  <!-- Import map lets us `import * as THREE from 'three'` with no build step. -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://esm.sh/three@0.160.0"
+    }
+  }
+  </script>
+</head>
+<body>
+  <!-- ── Custom title bar ─────────────────────────────────────────────── -->
+  <header class="titlebar">
+    <div class="titlebar__brand">
+      <span class="dot"></span> JARVIS
+    </div>
+    <div class="titlebar__drag"></div>
+    <div class="titlebar__actions">
+      <button id="btn-settings" title="Settings" class="icon-btn">⚙</button>
+      <button id="btn-min" class="icon-btn">—</button>
+      <button id="btn-max" class="icon-btn">▢</button>
+      <button id="btn-close" class="icon-btn icon-btn--danger">✕</button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <!-- ── Left column ─────────────────────────────────────────────── -->
+    <section class="col col--left">
+      <!-- Weather -->
+      <div class="glass panel weather">
+        <div class="panel__head">
+          <span>Weather</span>
+          <span id="weather-city" class="muted">—</span>
+        </div>
+        <div class="weather__now">
+          <div id="weather-temp" class="weather__temp">--°</div>
+          <div class="weather__meta">
+            <div id="weather-desc" class="weather__desc">Loading…</div>
+            <div id="weather-sub" class="muted small">H --° · L --°</div>
+          </div>
+        </div>
+        <div id="weather-forecast" class="weather__forecast"></div>
+      </div>
+
+      <!-- Tasks / reminders -->
+      <div class="glass panel tasks">
+        <div class="panel__head">
+          <span>Tasks &amp; Reminders</span>
+          <span id="task-count" class="muted small">0</span>
+        </div>
+        <form id="task-form" class="task__form">
+          <input id="task-input" placeholder="Add a task… (e.g. Call mom tomorrow)" autocomplete="off" />
+          <button type="submit" class="mini-btn">＋</button>
+        </form>
+        <ul id="task-list" class="task__list"></ul>
+      </div>
+    </section>
+
+    <!-- ── Center: the Orb + conversation ──────────────────────────── -->
+    <section class="col col--center">
+      <div class="orb-wrap">
+        <canvas id="orb-canvas"></canvas>
+        <div class="orb-status">
+          <div id="status-line" class="status-line">Say “Jarvis” to wake me</div>
+        </div>
+      </div>
+
+      <div class="chat-controls glass">
+        <div class="chat-controls__left">
+          <input id="chat-search" class="chat-search" placeholder="Search conversation…" autocomplete="off" />
+          <button id="chat-search-clear" type="button" class="icon-btn" title="Clear search">✕</button>
+        </div>
+        <div class="chat-controls__actions">
+          <button id="btn-regenerate" type="button" class="mini-btn">Regenerate</button>
+          <button id="btn-stop" type="button" class="mini-btn" disabled>Stop</button>
+          <button id="btn-export" type="button" class="mini-btn">Export</button>
+        </div>
+      </div>
+
+      <div id="transcript" class="transcript"></div>
+      <div id="chat-status" class="chat-status muted">Ready.</div>
+
+      <form id="chat-form" class="chat-bar glass">
+        <button type="button" id="btn-mic" class="mic-btn" title="Push to talk">🎙</button>
+        <input id="chat-input" placeholder="Ask Jarvis anything…" autocomplete="off" />
+        <button type="submit" class="send-btn">➤</button>
+      </form>
+    </section>
+
+    <!-- ── Right column ────────────────────────────────────────────── -->
+    <section class="col col--right">
+      <!-- Notifications / WhatsApp -->
+      <div class="glass panel notifs">
+        <div class="panel__head">
+          <span>WhatsApp</span>
+          <span id="notif-count" class="badge">0</span>
+        </div>
+        <div id="wa-connect" class="wa-connect">
+          <button id="btn-wa" class="wa-btn">Connect WhatsApp</button>
+          <div class="muted small">Links your account via WhatsApp Web (QR scan).</div>
+        </div>
+        <div id="wa-qr" class="wa-qr hidden">
+          <img id="wa-qr-img" alt="Scan to link" />
+          <div class="muted small">WhatsApp → Linked Devices → Link a device, then scan.</div>
+        </div>
+        <ul id="notif-list" class="notif__list"></ul>
+      </div>
+
+      <!-- Music -->
+      <div class="glass panel music">
+        <div class="panel__head">
+          <span>Music</span>
+          <button id="btn-music-folder" class="mini-btn" title="Choose offline music folder">📁</button>
+        </div>
+        <form id="yt-form" class="task__form">
+          <input id="yt-input" placeholder="Search YouTube…" autocomplete="off" />
+          <button type="submit" class="mini-btn">🔍</button>
+        </form>
+        <div id="yt-stage" class="yt-stage hidden">
+          <div id="disc" class="disc"></div>
+          <div class="yt-player"><div id="yt-player-inner"></div></div>
+        </div>
+        <div class="music__now">
+          <div id="music-title" class="music__title muted">No track loaded</div>
+          <div class="music__controls">
+            <button id="music-prev" class="icon-btn">⏮</button>
+            <button id="music-play" class="icon-btn">▶</button>
+            <button id="music-next" class="icon-btn">⏭</button>
+          </div>
+        </div>
+        <ul id="music-list" class="music__list"></ul>
+        <audio id="audio" preload="none"></audio>
+    </div>
+  </section>
+</main>
+
+<!-- ── Settings modal ──────────────────────────────────────────────────────────────── -->
+<div id="settings-modal" class="modal hidden">
+  <div class="glass modal__card">
+    <div class="panel__head">
+      <span>Settings</span>
+      <button id="settings-close" class="icon-btn">✕</button>
+    </div>
+
+    <label>AI brain <span class="muted small">(powers Jarvis's thinking)</span></label>
+    <select id="set-provider">
+      <option value="nvidia">NVIDIA GPT-OSS-120B</option>
+      <option value="groq">Groq — free &amp; fast</option>
+      <option value="gemini">Google Gemini — free</option>
+      <option value="claude">Anthropic Claude — paid</option>
+    </select>
+
+    <div id="nvidia-settings" class="hidden">
+      <label>NVIDIA API key <span class="muted small">(stored securely in the local app)</span></label>
+      <input id="set-nvidia" type="password" placeholder="nvidia-api-key" />
+      <label>NVIDIA model</label>
+      <select id="set-nvidia-model">
+        <option value="openai/gpt-oss-120b">openai/gpt-oss-120b</option>
+      </select>
+      <button id="btn-validate-nvidia" type="button" class="mini-btn">Validate & Refresh Models</button>
+      <div id="nvidia-status" class="muted small" style="margin-top:6px">Enter your NVIDIA key to discover models.</div>
+    </div>
+
+    <label>Groq API key <span class="muted small">(FREE, no card — console.groq.com → API Keys)</span></label>
+    <input id="set-groq" type="password" placeholder="gsk_…" />
+
+    <label>Google Gemini API key <span class="muted small">(FREE, no card — aistudio.google.com → Get API key)</span></label>
+    <input id="set-gemini" type="password" placeholder="AIza…" />
+
+    <label>Claude API key <span class="muted small">(optional, paid — console.anthropic.com)</span></label>
+    <input id="set-claude" type="password" placeholder="sk-ant-…" />
+
+    <label>ElevenLabs API key <span class="muted small">(optional — realistic voice)</span></label>
+    <input id="set-eleven" type="password" placeholder="optional" />
+
+    <label>Voice <span class="muted small">(ElevenLabs voice ID — leave default for “Rachel”)</span></label>
+    <input id="set-voiceid" placeholder="21m00Tcm4TlvDq8ikWAM" />
+
+    <label>City name</label>
+    <input id="set-city" placeholder="Brooklyn" />
+    <div class="row">
+      <div><label>Latitude</label><input id="set-lat" placeholder="40.65" /></div>
+      <div><label>Longitude</label><input id="set-lon" placeholder="-73.95" /></div>
+    </div>
+
+    <label>Wake word</label>
+    <input id="set-wake" placeholder="jarvis" />
+
+    <label class="check">
+      <input type="checkbox" id="set-offline" />
+      Offline speech (Whisper) <span class="muted small">— needs Python + `pip install -r python/requirements.txt`</span>
+    </label>
+    <label>Python command <span class="muted small">(only if auto-detect fails, e.g. "python" or a full path)</span></label>
+    <input id="set-python" placeholder="python3" />
+
+    <button id="settings-save" class="save-btn">Save</button>
+  </div>
+</div>
+
+<!-- Browser bridge (defines window.jarvis) — must load before the renderer -->
+<script src="api.js"></script>
+<script type="module" src="renderer.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+  }
+</script>
+</body>
+</html>
