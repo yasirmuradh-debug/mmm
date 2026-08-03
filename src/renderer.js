@@ -331,7 +331,7 @@ let trackIndex = -1;
 const audio = $('audio');
 
 // YouTube state
-let ytPlayer = null, ytReady = false, ytPlaying = false;
+let ytPlayer = null, ytReady = false, ytPlaying = false, apiReady = false;
 let ytResults = [], ytIndex = -1, pendingYt = null;
 let musicMode = 'offline'; // 'offline' | 'youtube'
 
@@ -409,6 +409,7 @@ function playTrack(i) {
   if (i < 0 || i >= tracks.length) return;
   musicMode = 'offline';
   if (ytPlayer && ytReady) { try { ytPlayer.pauseVideo(); } catch (_) {} }
+  const disc = $('disc'); if (disc) disc.classList.remove('spin');
   trackIndex = i;
   audio.src = J.musicUrl ? J.musicUrl(tracks[i].path) : 'file://' + tracks[i].path;
   audio.play().catch(() => {});
@@ -417,27 +418,46 @@ function playTrack(i) {
 }
 
 // ── YouTube ──────────────────────────────────────────────────────────────────
+// The player is created LAZILY on the first play request, in a visible
+// container. Creating it while its element is display:none (the old bug) breaks
+// playback, so we never do that.
 function loadYouTubeAPI() {
   window.onYouTubeIframeAPIReady = () => {
-    ytPlayer = new YT.Player('yt-player', {
-      height: '150', width: '100%',
-      playerVars: { autoplay: 0, controls: 1, rel: 0, modestbranding: 1 },
-      events: {
-        onReady: () => {
-          ytReady = true;
-          if (pendingYt) { const p = pendingYt; pendingYt = null; cueYouTube(p.videoId, p.title); }
-        },
-        onStateChange: (e) => {
-          ytPlaying = e.data === YT.PlayerState.PLAYING;
-          if (musicMode === 'youtube') $('music-play').textContent = ytPlaying ? '⏸' : '▶';
-          if (e.data === YT.PlayerState.ENDED && musicMode === 'youtube') playYtIndex(ytIndex + 1);
-        },
-      },
-    });
+    apiReady = true;
+    if (pendingYt) { const p = pendingYt; pendingYt = null; startVideo(p.videoId, p.title); }
   };
   const tag = document.createElement('script');
   tag.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(tag);
+}
+function onYtState(e) {
+  ytPlaying = e.data === YT.PlayerState.PLAYING;
+  if (musicMode === 'youtube') $('music-play').textContent = ytPlaying ? '⏸' : '▶';
+  const disc = $('disc');
+  if (disc) disc.classList.toggle('spin', ytPlaying);
+  if (e.data === YT.PlayerState.ENDED && musicMode === 'youtube') playYtIndex(ytIndex + 1);
+}
+function startVideo(videoId, title) {
+  musicMode = 'youtube';
+  audio.pause();
+  setMusicTitle(title || 'Playing…', false);
+  const stage = $('yt-stage'); if (stage) stage.classList.remove('hidden');
+  const disc = $('disc');
+  if (disc) { disc.style.backgroundImage = `url(https://img.youtube.com/vi/${videoId}/hqdefault.jpg)`; disc.classList.add('show', 'spin'); }
+  if (ytPlayer) {                       // player exists (or is being created)
+    if (ytReady) ytPlayer.loadVideoById(videoId);
+    else pendingYt = { videoId, title };
+    return;
+  }
+  if (!apiReady) { pendingYt = { videoId, title }; return; } // API script still loading
+  ytPlayer = new YT.Player('yt-player-inner', {
+    height: '160', width: '100%', videoId,
+    playerVars: { autoplay: 1, controls: 1, rel: 0, modestbranding: 1, playsinline: 1 },
+    events: {
+      onReady: () => { ytReady = true; if (pendingYt) { const p = pendingYt; pendingYt = null; ytPlayer.loadVideoById(p.videoId); } },
+      onStateChange: onYtState,
+    },
+  });
 }
 function renderYtResults() {
   $('music-list').innerHTML = ytResults.map((v, i) =>
@@ -453,11 +473,7 @@ function playYtIndex(i) {
   renderYtResults();
 }
 function cueYouTube(videoId, title) {
-  musicMode = 'youtube';
-  audio.pause();
-  setMusicTitle(title, false);
-  if (ytReady && ytPlayer) ytPlayer.loadVideoById(videoId);
-  else pendingYt = { videoId, title }; // player not ready yet — play on ready
+  startVideo(videoId, title);
 }
 
 // ── WhatsApp ──────────────────────────────────────────────────────────────────

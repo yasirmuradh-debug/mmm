@@ -37,7 +37,7 @@ export function createOrb(canvas) {
 
   const material = new THREE.PointsMaterial({
     size: 0.02,
-    color: 0xbfd4ff,
+    color: 0xf0d6b2,
     transparent: true,
     opacity: 0.9,
     blending: THREE.AdditiveBlending,
@@ -50,7 +50,7 @@ export function createOrb(canvas) {
   // A soft inner glow sphere.
   const glow = new THREE.Mesh(
     new THREE.SphereGeometry(0.75, 32, 32),
-    new THREE.MeshBasicMaterial({ color: 0x2a4fff, transparent: true, opacity: 0.15 })
+    new THREE.MeshBasicMaterial({ color: 0xc27a34, transparent: true, opacity: 0.15 })
   );
   scene.add(glow);
 
@@ -90,7 +90,7 @@ export function createOrb(canvas) {
     points.rotation.x = Math.sin(t * 0.2) * 0.15;
 
     // Colour shifts with state.
-    const target = state === 'speaking' ? 0xb98cff : state === 'listening' ? 0x6ea8ff : 0xbfd4ff;
+    const target = state === 'speaking' ? 0xf2af6e : state === 'listening' ? 0xe6a165 : 0xf0d6b2;
     material.color.lerp(new THREE.Color(target), 0.05);
     glow.material.opacity = 0.12 + smooth * 0.25;
     glow.scale.setScalar(1 + smooth * 0.3);
