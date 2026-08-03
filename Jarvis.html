@@ -13,16 +13,17 @@
       http://localhost:4321  — then the key stays safely on the server.
 -->
 <style>
-:root{--bg0:#05060a;--bg1:#0b1020;--glass:rgba(255,255,255,.055);--glass2:rgba(255,255,255,.1);
---stroke:rgba(255,255,255,.12);--text:#eaf0ff;--muted:rgba(234,240,255,.55);--accent:#6ea8ff;--accent2:#b98cff;
---ok:#3ddc84;--bad:#ff6b6b;--r:18px;--blur:20px}
+:root{--bg0:#100e0c;--bg1:#211d18;--glass:rgba(255,248,240,.05);--glass2:rgba(255,248,240,.09);
+--stroke:rgba(255,240,224,.13);--text:#f3ece1;--muted:rgba(243,236,225,.55);--accent:#e6a165;--accent2:#f2cf9a;
+--ok:#8fd6a6;--bad:#ff8f7d;--r:22px;--blur:22px}
 *{box-sizing:border-box;margin:0;padding:0}
 html,body{height:100%;font-family:-apple-system,"Segoe UI",Inter,system-ui,sans-serif;color:var(--text);overflow:hidden}
 body{display:flex;flex-direction:column;
-background:radial-gradient(1200px 800px at 78% -12%,rgba(120,90,200,.25),transparent 60%),
-radial-gradient(900px 700px at 12% 112%,rgba(70,120,220,.22),transparent 55%),
-linear-gradient(160deg,var(--bg1),var(--bg0));background-attachment:fixed;animation:bgshift 18s ease-in-out infinite alternate}
-@keyframes bgshift{0%{background-position:0 0,0 0,0 0}100%{background-position:40px -20px,-30px 20px,0 0}}
+background:radial-gradient(1100px 720px at 70% 6%,rgba(232,162,98,.30),transparent 55%),
+radial-gradient(760px 520px at 78% 20%,rgba(245,205,150,.18),transparent 50%),
+radial-gradient(900px 760px at 16% 116%,rgba(150,110,80,.22),transparent 55%),
+linear-gradient(165deg,#2a241d 0%,#171310 60%,var(--bg0) 100%);background-attachment:fixed;animation:bgshift 22s ease-in-out infinite alternate}
+@keyframes bgshift{0%{background-position:0 0,0 0,0 0,0 0}100%{background-position:36px -18px,-20px 10px,-26px 18px,0 0}}
 .muted{color:var(--muted)}.small{font-size:12px}
 .topbar{height:52px;display:flex;align-items:center;gap:12px;padding:0 18px;border-bottom:1px solid var(--stroke)}
 .brand{font-weight:700;letter-spacing:3px;font-size:14px;display:flex;align-items:center;gap:9px}
@@ -32,7 +33,7 @@ linear-gradient(160deg,var(--bg1),var(--bg0));background-attachment:fixed;animat
 .pill .d{width:8px;height:8px;border-radius:50%;background:var(--muted)}.pill.ok .d{background:var(--ok);box-shadow:0 0 8px var(--ok)}.pill.bad .d{background:var(--bad)}
 .iconbtn{background:transparent;border:none;color:var(--muted);width:34px;height:30px;border-radius:8px;cursor:pointer;font-size:15px;transition:.15s}
 .iconbtn:hover{background:var(--glass2);color:var(--text)}
-.stage{flex:1;display:grid;grid-template-columns:280px 1fr 280px;gap:16px;padding:14px 18px;min-height:0}
+.stage{flex:1;display:grid;grid-template-columns:290px 1fr 290px;gap:16px;padding:16px 20px 20px;min-height:0;width:100%;max-width:1680px;margin:0 auto}
 .col{display:flex;flex-direction:column;gap:16px;min-height:0}
 .glass{background:var(--glass);border:1px solid var(--stroke);border-radius:var(--r);backdrop-filter:blur(var(--blur));-webkit-backdrop-filter:blur(var(--blur));box-shadow:0 20px 60px rgba(0,0,0,.35)}
 .panel{padding:15px;display:flex;flex-direction:column;min-height:0}
@@ -62,7 +63,7 @@ ul.list{list-style:none;overflow-y:auto;flex:1}
 .msg.user .who{background:linear-gradient(135deg,var(--accent),var(--accent2));color:#04122e}
 .msg.ai .who{background:var(--glass2);border:1px solid var(--stroke)}
 .bubble{background:var(--glass);border:1px solid var(--stroke);border-radius:14px;padding:11px 13px;line-height:1.55;font-size:14px;overflow-x:auto;min-width:0}
-.msg.user .bubble{background:rgba(110,168,255,.12)}
+.msg.user .bubble{background:rgba(230,161,101,.14)}
 .bubble pre{background:#0a0e1c;border:1px solid var(--stroke);border-radius:10px;padding:11px;overflow-x:auto;margin:7px 0}
 .bubble code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px}
 .bubble p code{background:rgba(255,255,255,.1);padding:1px 5px;border-radius:5px}
@@ -83,6 +84,12 @@ ul.list{list-style:none;overflow-y:auto;flex:1}
 /* right */
 .yt-player{border-radius:12px;overflow:hidden;margin-bottom:9px}.yt-player:empty{display:none}
 .yt-player iframe{display:block;width:100%;border:0;border-radius:12px}
+.disc{width:136px;height:136px;border-radius:50%;margin:4px auto 12px;position:relative;display:none;
+ background:#0b0906 center/cover no-repeat;box-shadow:0 14px 34px rgba(0,0,0,.55),inset 0 0 0 5px rgba(0,0,0,.45),inset 0 0 0 6px rgba(255,236,214,.08),0 0 26px rgba(232,162,98,.22)}
+.disc.show{display:block}
+.disc.spin{animation:spin 7s linear infinite}
+.disc::after{content:"";position:absolute;top:calc(50% - 16px);left:calc(50% - 16px);width:32px;height:32px;border-radius:50%;background:radial-gradient(circle,#2b2419,#0f0c08);border:2px solid rgba(255,236,214,.3)}
+@keyframes spin{to{transform:rotate(360deg)}}
 .note{font-size:12px;color:var(--muted);padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05)}
 /* modal */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:30}
@@ -141,8 +148,9 @@ ul.list{list-style:none;overflow-y:auto;flex:1}
 
   <section class="col right">
     <div class="glass panel">
-      <div class="phead"><span>Music (YouTube)</span></div>
-      <form id="yt-form" class="rowform"><input id="yt-input" placeholder="Paste YouTube link or ID"/><button class="mini">▶</button></form>
+      <div class="phead"><span>Music</span><a id="yt-search-link" href="#" class="muted small" title="Open YouTube search">Search ↗</a></div>
+      <div id="disc" class="disc"></div>
+      <form id="yt-form" class="rowform"><input id="yt-input" placeholder="Search or paste a YouTube link"/><button class="mini">▶</button></form>
       <div id="yt-player" class="yt-player"></div>
       <div id="yt-title" class="muted small">Nothing playing</div>
     </div>
@@ -219,7 +227,7 @@ const orb=(()=>{
  const cv=$("#orb"),ctx=cv.getContext("2d");const N=780,pts=[];
  for(let i=0;i<N;i++){const y=1-(i/(N-1))*2,r=Math.sqrt(1-y*y),th=i*2.399963;pts.push([Math.cos(th)*r,y,Math.sin(th)*r,Math.random()]);}
  let level=0,sm=0,state="idle",t=0,mx=0,my=0,dpr=Math.min(devicePixelRatio||1,2);
- const COL={idle:[191,212,255],listening:[110,168,255],speaking:[185,140,255],thinking:[125,220,180]};
+ const COL={idle:[240,214,178],listening:[230,161,101],speaking:[242,175,110],thinking:[236,206,158]};
  cv.addEventListener("mousemove",e=>{const b=cv.getBoundingClientRect();mx=((e.clientX-b.left)/b.width-.5)*1.2;my=((e.clientY-b.top)/b.height-.5)*1.2;});
  cv.addEventListener("mouseleave",()=>{mx=my=0;});
  function frame(){
@@ -383,10 +391,21 @@ if("Notification"in window&&Notification.permission==="default")Notification.req
 
 /* ── YouTube by link/ID ───────────────────────────────────────────────────── */
 let ytP=null,ytReady=false,pend=null;
-function loadYT(){window.onYouTubeIframeAPIReady=()=>{ytP=new YT.Player("yt-player",{height:"140",width:"100%",playerVars:{autoplay:1,rel:0,modestbranding:1},events:{onReady:()=>{ytReady=true;if(pend){cueYT(pend);pend=null;}}}});};const t=document.createElement("script");t.src="https://www.youtube.com/iframe_api";document.head.appendChild(t);}
+function loadYT(){window.onYouTubeIframeAPIReady=()=>{ytP=new YT.Player("yt-player",{height:"140",width:"100%",playerVars:{autoplay:1,rel:0,modestbranding:1},
+ events:{onReady:()=>{ytReady=true;if(pend){playVid(pend.id,pend.title);pend=null;}},
+  onStateChange:e=>{const d=$("#disc");if(e.data===YT.PlayerState.PLAYING)d.classList.add("spin");else d.classList.remove("spin");}}});};
+ const t=document.createElement("script");t.src="https://www.youtube.com/iframe_api";document.head.appendChild(t);}
 function ytId(s){s=s.trim();const m=s.match(/(?:v=|youtu\.be\/|embed\/|shorts\/)([\w-]{11})/);if(m)return m[1];if(/^[\w-]{11}$/.test(s))return s;return null;}
-function cueYT(id){if(ytReady&&ytP)ytP.loadVideoById(id);else pend=id;$("#yt-title").textContent="Playing…";$("#yt-title").classList.remove("muted");}
-$("#yt-form").onsubmit=e=>{e.preventDefault();const id=ytId($("#yt-input").value);if(!id){$("#yt-title").textContent="Paste a valid YouTube link/ID";return;}$("#yt-input").value="";cueYT(id);};
+function playVid(id,title){const d=$("#disc");d.style.backgroundImage=`url(https://img.youtube.com/vi/${id}/hqdefault.jpg)`;d.classList.add("show","spin");
+ $("#yt-title").textContent=title||"Playing…";$("#yt-title").classList.remove("muted");if(ytReady&&ytP)ytP.loadVideoById(id);else pend={id,title};}
+$("#yt-form").onsubmit=async e=>{e.preventDefault();const raw=$("#yt-input").value.trim();if(!raw)return;const id=ytId(raw);
+ if(id){$("#yt-input").value="";playVid(id,"");return;}
+ // keywords → search needs the local server (set a Backend URL in Settings)
+ if(S.backend){$("#yt-title").textContent="Searching…";try{const r=await fetch(S.backend.replace(/\/$/,"")+"/api/youtube/search?q="+encodeURIComponent(raw));const j=await r.json();
+   if(j.ok&&j.videos&&j.videos.length){$("#yt-input").value="";playVid(j.videos[0].videoId,j.videos[0].title);}else{$("#yt-title").textContent="No results";}}
+  catch(x){$("#yt-title").textContent="Search failed — is the server running?";}}
+ else{$("#yt-title").textContent="Paste a link to play, or set a Backend URL to search";}};
+$("#yt-search-link").onclick=e=>{e.preventDefault();const q=$("#yt-input").value.trim();window.open("https://www.youtube.com/results?search_query="+encodeURIComponent(q||"music"),"_blank");};
 
 /* ── settings modal ───────────────────────────────────────────────────────── */
 function fillSettings(){$("#s-provider").value=S.provider;$("#s-backend").value=S.backend;$("#s-nvidia").value=S.nvidiaKey;$("#s-gemini").value=S.geminiKey;
