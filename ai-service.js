@@ -12,18 +12,29 @@
 try { require('dotenv').config(); } catch (_) { /* dotenv optional; real env vars still work */ }
 
 const PROVIDERS = {
-  nvidia: { label: 'NVIDIA GPT-OSS-120B', model: 'openai/gpt-oss-120b', url: 'https://integrate.api.nvidia.com/v1/chat/completions', openai: true, env: 'NVIDIA_API_KEY' },
+  nvidia: { label: 'NVIDIA GPT-OSS-120B', model: 'openai/gpt-oss-120b', url: 'https://integrate.api.nvidia.com/v1/chat/completions', openai: true, env: 'NVIDIA_API_KEY', setting: 'nvidiaApiKey' },
   groq:   { label: 'Groq Llama-3.3-70B',  model: 'llama-3.3-70b-versatile', url: 'https://api.groq.com/openai/v1/chat/completions', openai: true, setting: 'groqApiKey' },
   gemini: { label: 'Google Gemini 2.0 Flash', model: 'gemini-2.0-flash', openai: false, setting: 'geminiApiKey' },
   claude: { label: 'Anthropic Claude', model: 'claude-sonnet-5', openai: false, setting: 'claudeApiKey' },
 };
 
-// Where a provider's key comes from: env for NVIDIA, user settings for the rest.
+// Where a provider's key comes from. NVIDIA accepts a key pasted in Settings
+// (settings.nvidiaApiKey) OR the NVIDIA_API_KEY environment variable (.env) —
+// the pasted key wins so the UI just works; the others come from Settings.
 function keyForProvider(provider, settings) {
   const cfg = PROVIDERS[provider];
   if (!cfg) return null;
+  const fromSetting = settings && cfg.setting && settings[cfg.setting];
+  if (fromSetting) return fromSetting;
   if (cfg.env) return process.env[cfg.env] || null;
-  return (settings && settings[cfg.setting]) || null;
+  return null;
+}
+
+// The model id to use for a provider (respects a user-chosen NVIDIA model).
+function modelForProvider(provider, settings) {
+  const cfg = PROVIDERS[provider] || {};
+  if (provider === 'nvidia' && settings && settings.nvidiaModel) return settings.nvidiaModel;
+  return cfg.model;
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -101,4 +112,4 @@ async function streamOpenAICompatible({ url, model, apiKey, messages, system, te
   return { ok: true, usage };
 }
 
-module.exports = { PROVIDERS, keyForProvider, chatOpenAICompatible, streamOpenAICompatible };
+module.exports = { PROVIDERS, keyForProvider, modelForProvider, chatOpenAICompatible, streamOpenAICompatible };

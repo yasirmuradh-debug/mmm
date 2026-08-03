@@ -31,6 +31,7 @@ const db = {
 const DEFAULT_SETTINGS = {
   aiProvider: 'nvidia',         // 'nvidia' | 'groq' | 'gemini' | 'claude'
   temperature: 0.7, maxTokens: 1024,
+  nvidiaApiKey: '', nvidiaModel: 'openai/gpt-oss-120b',
   groqApiKey: '', geminiApiKey: '', claudeApiKey: '',
   elevenLabsApiKey: '', city: 'Brooklyn',
   latitude: 40.65, longitude: -73.95, wakeWord: 'jarvis',
@@ -283,7 +284,7 @@ const GEMINI_TOOLS = [{ functionDeclarations: TOOLS.map((t) => ({ name: t.name, 
 const SYS = (s) => (s || 'You are Jarvis, a concise, warm, witty desktop assistant.') +
   ' You can control the computer with the provided tools when asked to open, find, launch or note something. Use them, then reply briefly.';
 function noKeyMsg(provider) {
-  if (provider === 'nvidia') return { ok: false, text: 'NVIDIA key not found. Create a .env file next to server.js with  NVIDIA_API_KEY=your-key  (see .env.example) and restart Jarvis.' };
+  if (provider === 'nvidia') return { ok: false, text: 'NVIDIA key not set. Open Settings (gear), paste your NVIDIA key (build.nvidia.com), and Save — or put NVIDIA_API_KEY in a .env file.' };
   const where = provider === 'groq' ? 'console.groq.com (free)' : provider === 'gemini' ? 'aistudio.google.com (free)' : 'console.anthropic.com';
   return { ok: false, text: `I need a key first. Open Settings (gear), get one at ${where}, paste it, and Save.` };
 }
@@ -292,7 +293,7 @@ function noKeyMsg(provider) {
 function chatOpenAI(provider, apiKey, messages, system, flags, settings) {
   const cfg = ai.PROVIDERS[provider];
   return ai.chatOpenAICompatible({
-    url: cfg.url, model: cfg.model, apiKey, messages, system,
+    url: cfg.url, model: ai.modelForProvider(provider, settings), apiKey, messages, system,
     openaiTools: OPENAI_TOOLS, runTool,
     temperature: settings.temperature, maxTokens: settings.maxTokens, flags,
   });
@@ -374,10 +375,11 @@ app.post('/api/chat/stream', async (req, res) => {
     const cfg = ai.PROVIDERS[provider] || {};
     const key = ai.keyForProvider(provider, settings);
     if (!key) { send({ type: 'error', text: noKeyMsg(provider).text }); return res.end(); }
-    send({ type: 'meta', provider, model: cfg.model || provider });
+    const modelId = ai.modelForProvider(provider, settings);
+    send({ type: 'meta', provider, model: modelId || provider });
     if (cfg.openai) {
       const out = await ai.streamOpenAICompatible(
-        { url: cfg.url, model: cfg.model, apiKey: key, messages: req.body.messages, system, temperature: settings.temperature, maxTokens: settings.maxTokens },
+        { url: cfg.url, model: modelId, apiKey: key, messages: req.body.messages, system, temperature: settings.temperature, maxTokens: settings.maxTokens },
         (chunk) => send({ type: 'delta', text: chunk }),
       );
       if (!out.ok) send({ type: 'error', text: out.error });
@@ -399,7 +401,31 @@ app.get('/api/status', (_q, res) => {
   const s = db.get('settings', {});
   const provider = s.aiProvider || 'nvidia';
   const cfg = ai.PROVIDERS[provider] || {};
-  res.json({ ok: true, provider, model: cfg.model || provider, label: cfg.label || provider, hasKey: !!ai.keyForProvider(provider, s), temperature: s.temperature ?? 0.7, maxTokens: s.maxTokens ?? 1024 });
+  res.json({ ok: true, provider, model: ai.modelForProvider(provider, s) || provider, label: cfg.label || provider, hasKey: !!ai.keyForProvider(provider, s), temperature: s.temperature ?? 0.7, maxTokens: s.maxTokens ?? 1024 });
+});
+
+// ── NVIDIA key validation + model discovery ─────────────────────────────────
+async function nvidiaModels(key) {
+  const r = await fetch('https://integrate.api.nvidia.com/v1/models', { headers: { authorization: 'Bearer ' + key } });
+  if (!r.ok) { let m = 'HTTP ' + r.status; try { const j = await r.json(); m = j.detail || j.error?.message || m; } catch (_) {} throw new Error(String(m)); }
+  const d = await r.json();
+  return (d.data || []).map((m) => ({ id: m.id })).filter((m) => m.id);
+}
+// Validate a pasted key against NVIDIA, and remember it on success so chat works.
+app.post('/api/nvidia/validate', async (req, res) => {
+  const key = (req.body && req.body.apiKey || '').trim();
+  if (!key) return res.json({ ok: false, error: 'No key provided.' });
+  try {
+    const models = await nvidiaModels(key);
+    db.set('settings', { ...db.get('settings', {}), nvidiaApiKey: key });
+    res.json({ ok: true, models });
+  } catch (e) { res.json({ ok: false, error: e.message }); }
+});
+app.get('/api/nvidia/models', async (_req, res) => {
+  const key = db.get('settings', {}).nvidiaApiKey || process.env.NVIDIA_API_KEY;
+  if (!key) return res.json({ ok: false, error: 'No NVIDIA key set.' });
+  try { res.json({ ok: true, models: await nvidiaModels(key) }); }
+  catch (e) { res.json({ ok: false, error: e.message }); }
 });
 
 // ── Serve the UI ────────────────────────────────────────────────────────────
